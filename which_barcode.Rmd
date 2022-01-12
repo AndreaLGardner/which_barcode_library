@@ -65,7 +65,7 @@ grow_cells <- function(df, K, t_expand)
     df_out <- df %>% select(-abund) %>%  
             mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = K)),   # solve logistic growth for N at expansion time for each Cell_ID        
                    abund = counts/sum(counts))                                          # determine abundance of each Cell_ID in population
-    df_out <- df_out[df_out$counts >= 0, ]                                              # remove rows with 0 or less counts
+    df_out <- df_out[df_out$counts > 0, ]                                               # remove rows with 0 or less counts
     
     rownames(df_out) <- NULL
     return(df_out)
@@ -92,7 +92,7 @@ random_cell_loss <- function(df, prob_death)
                                 mutate(counts = counts - num_cells_lost) %>%         # calculate new counts by subtracting num_cells_lost occurrences from previous count
                                 mutate(abund = counts/sum(counts) ) %>%              # calculate new abundance data
                                 select(-num_cells_lost)                              # remove unnecessary columns
-    df_out <- df_out[df_out$counts >= 0, ]                                           # remove rows with 0 or less counts
+    df_out <- df_out[df_out$counts > 0, ]                                            # remove rows with 0 or less counts
     
     rownames(df_out) <- NULL
     return(df_out)
@@ -152,6 +152,29 @@ print(paste("total number of cells after", round(t_expand/24,2), " days of expan
 
 ######### EXPERIMENT PHASE #################################
 ```{r}
+# How many unique barcodes were lost compared to what was expected
+writeLines(paste("Sorted library size:", library_size, "\nFinal library size before freezebacks: ", length(unique(FinalCounts$Cell_ID)) ) )
+
+sum(FinalCounts$counts)
+
+num_cells_experiment <- 2e6
+    num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
+ cell_per_freezeback <- 1e6
+      num_freezbacks <- floor(num_cells_freeze/cell_per_freezeback)
+
+
+long_cells <- FinalCounts %>% select(-abund, -gr) %>% uncount(counts) # create a list of all cells in the population
+
+mixed_population <- sample(long_cells$Cell_ID, replace = FALSE)   # randomize the list so it's not like 1 1 1 1 2 2 2 2 2 3 3 3 3, but more like 52 100 899 4 37 13
+
+experimental_population <- mixed_population[1:num_cells_experiment]   # grab the first portion of the random list as the experimental population
+     frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
+
+     
+writeLines(paste("                  Sorted library size:",   library_size, 
+                 "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
+                 "\n Experimental population library size:", length(unique(experimental_population))) )  
+
 
 ```
 

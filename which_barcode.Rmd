@@ -227,8 +227,14 @@ all_replicates<- rbind(replicate1,replicate2)                                   
 vegdist(all_replicates, "bray")                                                                   #calculate Bray-Curtis--- spits out one number
 
 
-# Jaccard (double check previous, may need to do actually dot product operations)
+# Jaccard (double check me, unsure if I did this right or not)
+jaccard<- function(counts1, counts2) {
+  in_each = length(intersect(counts1, counts2))
+  in_either= length(counts1)+ length(counts2) - in_each
+  return(in_each/in_either)
+}
 
+jaccard(experimental_population, frozen_populations)
 
 # Cosine
 

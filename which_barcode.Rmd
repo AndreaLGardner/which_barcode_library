@@ -65,11 +65,11 @@ grow_cells <- function(df, K)
   }
 
 
-### STOCHASTIC SELECTION AT PASSAGE/EXPANSION ######
-passage_cells <- function(df)
+### STOCHASTIC SELECTION AT PASSAGE/EXPANSION/SORT/FREEZE/THAW ######
+passage_cells <- function(df, prob_death)
   {
     cells_lost_expand = sample(    x = df$Cell_ID,                                   # choose from set of Cell_IDs in data frame
-                                size = round(prob_passage_death*sum(df$counts)),     # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                                size = round(prob_death*sum(df$counts)),     # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
                                 prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
                              replace = TRUE)                                         
   
@@ -115,7 +115,7 @@ SortMatrix <- OGcounts[OGcounts$Cell_ID %not in% cells_lost_sort, ]             
 # (3) Simulate growth of each subclone to 80% vessel carrying capacity and store new cell counts and abundance in data frame
 SortGrow <- grow_cells(df = SortMatrix, K = k_96well)
 
-SortOut <- passage_cells(df = SortGrow)
+SortOut <- passage_cells(df = SortGrow, prob_death = prob_passage_death)
 
 print(paste("total number of cells after expansion = ",sum(SortGrow$counts)))
 print(paste("total number of cells after replating = ",sum(SortOut$counts)))

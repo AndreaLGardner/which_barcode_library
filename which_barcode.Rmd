@@ -1,0 +1,61 @@
+---
+title: "Barcode Diversity"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+```
+
+## Creating matrix i hope?
+
+```{r }
+library_size=1000
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>% add_column(gr= rnorm(nrow(.), mean=0.022, sd=0.004)) %>% add_column(counts= c(rep(1,library_size)))%>% mutate(abund= OGcounts$counts/sum(OGcounts$counts))
+
+ 
+
+```
+
+
+```{r }
+prob_cellsort_death=0.15
+
+#sample(x=x, size=n, prob=p)
+
+cells_lost_sort= sample(x=OGcounts$Cell_ID, size=round(prob_cellsort_death*sum(OGcounts$counts)), prob =OGcounts$abund )
+
+```
+
+```{r}
+`%not in%` <- negate(`%in%`)
+SortMatrix<- OGcounts[OGcounts$Cell_ID %not in% cells_lost_sort,]
+
+```
+```{r}
+# function to solve an exponential growth equation for the final number of cells given growth rate, starting number of cells, and the final time point
+solveN <- function(g, N0, tfinal){
+Nfinal <- N0*exp(g*24*tfinal)
+return(Nfinal)
+}
+# function to solve an exponential growth equation for the final time given growth rate, starting number of cells, and the final number of cells
+solvet <- function(g, N0, Nfinal){
+  tfinal <- (1/(g))*log(Nfinal/N0)/24
+  return(tfinal)
+}
+```
+
+```{r}
+SortMeangr= mean(SortMatrix$gr)
+days= solvet(SortMeangr,sum(SortMatrix$counts), 50000)
+
+```
+
+
+```{r}
+SortMatrix %>% mutate(NewCount= floor(solveN(SortMatrix$gr,SortMatrix$counts,days)))
+
+```
+

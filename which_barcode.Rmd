@@ -55,7 +55,7 @@ days= solvet(SortMeangr,sum(SortMatrix$counts), 50000)
 
 
 ```{r}
-SortMatrix %>% mutate(NewCount= floor(solveN(SortMatrix$gr,SortMatrix$counts,days)))
+SortMatrix %>% select(-abund) %>% mutate(counts= floor(solveN(SortMatrix$gr,SortMatrix$counts,days)))%>% mutate(abund= counts/sum(SortMatrix$counts))
 
 ```
 

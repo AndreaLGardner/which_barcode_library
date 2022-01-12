@@ -1,0 +1,19 @@
+---
+title: "Logistic functions"
+output: html_document
+---
+
+```{r functions}
+# function to solve a logistic growth equation for the final number of cells given growth rate, starting number of cells, carrying capacity and the final time point
+solveN <- function(g, N0, k, tfinal){
+Nfinal <- (k*N0)/N0+(k-N0)*exp(g*tfinal)
+return(Nfinal)
+}
+
+# function to solve a logistic growth equation for the final time given growth rate, starting number of cells, carrying capacity, and the final number of cells
+solvet <- function(g, N0, k, Nfinal){
+  tfinal <- -(ln((N0*(1-(k/Nfinal)))/(N0-k)))/g
+  return(tfinal)
+}
+```
+

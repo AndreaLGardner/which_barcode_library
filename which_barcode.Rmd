@@ -7,6 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyverse)
+library(vegan)
 ```
 
 ############ USER INPUTS ####################################
@@ -195,6 +196,7 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
 ```
 
+
 ###### DIVERSITY AND SIMILARITY METRICS ######################
 ```{r}
 # Shannon Index (Lan)
@@ -207,6 +209,22 @@ shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculat
 
 
 # Bray-Curtis Index (Caro)
+#General set up to be able to do the Bray-Curtis---- need help with reshaping all the data in a better way
+exp_replicates=2                                                                                  # ask user how many replicates will be in experiment
+cells_per_replicate=num_cells_experiment/exp_replicates                                           # determine number of cells in each replicate
+exp_population1 <- experimental_population[1:cells_per_replicate]                                 # split the experiment population up according to the number of replicates wanted
+exp_population2<- experimental_population[1+cells_per_replicate:length(experimental_population)]
+
+replicate1<- data.frame(table(exp_population1))                                                   # make replicate back into data frame
+colnames(replicate1)<- c('Cell_ID', 'Counts')                                                     # rename columns
+replicate1<- replicate1 %>% spread(Cell_ID, Counts)                                               # make into wide form by having each Cell_ID be its own column
+
+replicate2<- data.frame(table(exp_population2))                                                   #repeat for other replicates
+colnames(replicate2)<- c('Cell_ID', 'Counts')                       
+replicate2<- replicate2 %>% spread(Cell_ID, Counts)
+
+all_replicates<- rbind(replicate1,replicate2)                                                     #combine all replicates so that each row is one replicate
+vegdist(all_replicates, "bray")                                                                   #calculate Bray-Curtis--- spits out one number
 
 
 # Jaccard (double check previous, may need to do actually dot product operations)

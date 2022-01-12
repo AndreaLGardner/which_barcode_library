@@ -144,6 +144,7 @@ FinalCounts <- SortOut                                                          
 for (i in seq(1,(num_passages-1)))                                                                            # Simulate logistic growth and stochastic cells loss num_passages-1 times over t_interval
   {
     NewCounts <- grow_cells(df = FinalCounts, K = 1.2*final_cell_count, t_expand = t_interval)
+    NewCounts <- random_cell_loss(df = NewCounts, prob_death = prob_passage_death)
     FinalCounts <- NewCounts
   }
 
@@ -181,11 +182,28 @@ writeLines(paste("                  Sorted library size:",   library_size,
                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
+exp_pop           <- data.frame(table(experimental_population))                              # count occurrences of each cell id in cells_lost_expand
+colnames(exp_pop) <- c('Cell_ID', 'counts')                             # rename columns
+exp_pop$Cell_ID   <- as.integer(as.character(exp_pop$Cell_ID))                 # change data type of cell_id column to integer
+
+exp_pop <- exp_pop %>% mutate(abund = counts/sum(counts) )
+
 
 ```
 
 ###### DIVERSITY AND SIMILARITY METRICS ######################
 ```{r}
+# Shannon Index (Lan)
+
+
+# Bray-Curtis Index (Caro)
+
+
+# Jaccard (double check previous, may need to do actually dot product operations)
+
+
+# Cosine
+
 
 ```
 

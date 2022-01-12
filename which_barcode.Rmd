@@ -14,6 +14,8 @@ library(tidyverse)
 library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
+final_cell_count = 10e6    # number of cells needed for experiments and freezebacks
+num_passages = 3           # number of expansions
 
 ```
 
@@ -21,8 +23,9 @@ cell_doubl_time = NA       # estimated cell doubling time [hr]
 ############ SET INPUTS ####################################
 ```{r}
 sd_growth_rate = 0.003        # standard deviation around mean growth rate [1/hr]
-prob_cellsort_death = 0.15    # probability of death after cell sort [ ]
 k_96well = 55e3               # carrying capacity of a 96-well plate [number of cells]
+prob_cellsort_death = 0.15    # probability of death after cell sort [ ]
+prob_passage_death = 0.05     # cells lost during routine passaging [ ]
 ```
 
 
@@ -52,9 +55,6 @@ solvet <- function(g, N0, Nfinal, k)
 
 ############ SORT PHASE ####################################
 ```{r}
-
-set.seed(1212)
-
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
 
@@ -78,13 +78,65 @@ num_uniq = length(unique(SortMatrix$Cell_ID))
 t_expand = solvet(g = SortMax_gr, N0 = sum(SortMatrix$counts), Nfinal = 0.85*k_96well, k = k_96well)   # solve logistic growth equation for expansion time
 
 
+### EXPAND CELLS
 # (4) Simulate growth of each subclone to t_expand and store new cell counts and abundance in data frame
-SortOut <- SortMatrix %>% select(-abund) %>% 
+SortGrow <- SortMatrix %>% select(-abund) %>% 
            mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = k_96well)), # solve logistic growth for N at expansion time for each Cell_ID        
-                   abund = counts/sum(counts))                                            # determine abundance of each Cell_ID in population
+                   abund = counts/sum(counts))                                              # determine abundance of each Cell_ID in population
 
-head(SortOut)
-print(paste("total number of cells after expansion = ",sum(SortOut$counts)))
+
+# (5) Stochastic selection of cells that die during expansion to new vessel
+cells_lost_expand = sample(    x = SortGrow$Cell_ID,                                     # choose from set of Cell_IDs in data frame
+                          size = round(prob_passage_death*sum(SortGrow$counts)),         # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                          prob = SortGrow$abund,                                         # weight probability of Cell_ID selection by abundance
+                          replace = TRUE)                                         
+
+
+num_lost <- data.frame(table(cells_lost_expand))                 # count occurrences of each cell id in cells_lost_expand
+colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')             # rename columns
+  num_lost$Cell_ID <- as.integer(as.character(num_lost$Cell_ID)) # change data type of cell_id column to intege
+  
+
+update_counts <- left_join(SortGrow, num_lost)                                           # join with original data frame with current cell counts
+update_counts$num_cells_lost[is.na(update_counts$num_cells_lost)] <- 0
+
+SortOut <- update_counts %>% select(-abund) %>%                                       # remove old abundance data
+                             mutate(counts = counts - num_cells_lost) %>%             # calculate new counts by subtracting num_cells_lost occurences from previous count
+                             mutate(abund = counts/sum(counts) ) %>%                  # calculate new abundance data
+                             select(-num_cells_lost)                                  # remove unnecessary columns
+
+print(paste("total number of cells after expansion = ",sum(SortGrow$counts)))
+print(paste("total number of cells after replating = ",sum(SortOut$counts)))
+```
+
+######### BULK EXPANSION PHASE #############################
+```{r}
+# take SortOut as input
+
+# determine time (t_expand) to get to final_cell_count based on max gr in data frame
+
+# Divide time into intervals, i.e. t_interval =  t_expand / num_passages-1
+
+# Simulate logistic growth and stochatic cells loss similar to steps 4 and 5 above for each time step
 
 ```
+
+
+
+##### [optional] FREEZE/THAW PHASE #########################
+```{r}
+
+```
+
+
+######### EXPERIMENT PHASE #################################
+```{r}
+
+```
+
+###### PLOTTING AND ANALYSIS #################################
+```{r}
+
+```
+
 

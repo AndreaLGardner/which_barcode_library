@@ -45,12 +45,24 @@ solveN <- function(g, N0, tfinal, k)
 # function to solve a logistic growth equation for the final time given growth rate, starting number of cells, carrying capacity, and the final number of cells
 solvet <- function(g, N0, Nfinal, k)
   {
-  tfinal <- -(log((N0*(1-(k/Nfinal)))/(N0-k)))/g  
-  return(tfinal)
+    tfinal <- -(log((N0*(1-(k/Nfinal)))/(N0-k)))/g  
+    return(tfinal)
   }
 
-### STOCHASTIC SELECTION AT PASSAGE/EXPANSION ######
 
+### LOGISITC GROWTH PER ROW IN DATA FRAME ###########
+grow_cells <- function(df, t, K)
+  {
+    df_out <- df %>% select(-abund) %>%  
+             mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t, k = K)),     # solve logistic growth for N at expansion time for each Cell_ID        
+                     abund = counts/sum(counts))                                    # determine abundance of each Cell_ID in population
+    return(df_out)
+  }
+
+
+
+
+### STOCHASTIC SELECTION AT PASSAGE/EXPANSION ######
 passage_cells <- function(df)
   {
     cells_lost_expand = sample(    x = df$Cell_ID,                                   # choose from set of Cell_IDs in data frame
@@ -58,18 +70,18 @@ passage_cells <- function(df)
                             prob = df$abund,                                         # weight probability of Cell_ID selection by abundance
                             replace = TRUE)                                         
   
-    num_lost           <- data.frame(table(cells_lost_expand))                 # count occurrences of each cell id in cells_lost_expand
-    colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')                       # rename columns
-    num_lost$Cell_ID   <- as.integer(as.character(num_lost$Cell_ID))           # change data type of cell_id column to intege
+    num_lost           <- data.frame(table(cells_lost_expand))                       # count occurrences of each cell id in cells_lost_expand
+    colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')                             # rename columns
+    num_lost$Cell_ID   <- as.integer(as.character(num_lost$Cell_ID))                 # change data type of cell_id column to intege
       
     
-    update_counts <- left_join(df, num_lost)                                           # join with original data frame with current cell counts
+    update_counts <- left_join(df, num_lost)                                         # join with original data frame with current cell counts
     update_counts$num_cells_lost[is.na(update_counts$num_cells_lost)] <- 0
     
-    df_out <- update_counts %>% select(-abund) %>%                                       # remove old abundance data
-                                mutate(counts = counts - num_cells_lost) %>%             # calculate new counts by subtracting num_cells_lost occurences from previous count
-                                mutate(abund = counts/sum(counts) ) %>%                  # calculate new abundance data
-                                select(-num_cells_lost)                                  # remove unnecessary columns
+    df_out <- update_counts %>% select(-abund) %>%                                   # remove old abundance data
+                                mutate(counts = counts - num_cells_lost) %>%         # calculate new counts by subtracting num_cells_lost occurences from previous count
+                                mutate(abund = counts/sum(counts) ) %>%              # calculate new abundance data
+                                select(-num_cells_lost)                              # remove unnecessary columns
     return(df_out)
   }
 
@@ -104,11 +116,9 @@ t_expand = solvet(g = SortMax_gr, N0 = sum(SortMatrix$counts), Nfinal = 0.80*k_9
 
 ### EXPAND CELLS
 # (4) Simulate growth of each subclone to t_expand and store new cell counts and abundance in data frame
-SortGrow <- SortMatrix %>% select(-abund) %>% 
-           mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = k_96well)), # solve logistic growth for N at expansion time for each Cell_ID        
-                   abund = counts/sum(counts))                                              # determine abundance of each Cell_ID in population
+SortGrow <- grow_cells(df = SortMatrix, t = t_expand, K = k_96well)
 
-SortOut <- passage_cells(SortGrow)
+SortOut <- passage_cells(df = SortGrow)
 
 print(paste("total number of cells after expansion = ",sum(SortGrow$counts)))
 print(paste("total number of cells after replating = ",sum(SortOut$counts)))

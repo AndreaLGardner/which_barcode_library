@@ -188,12 +188,22 @@ exp_pop$Cell_ID   <- as.integer(as.character(exp_pop$Cell_ID))                 #
 
 exp_pop <- exp_pop %>% mutate(abund = counts/sum(counts) )
 
+fro_pop <- data.frame(table(frozen_populations))                        # copied above for frozen_populations
+colnames(fro_pop) <- c('Cell_ID', 'counts')                             # rename columns
+fro_pop$Cell_ID   <- as.integer(as.character(fro_pop$Cell_ID))
+fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
 ```
 
 ###### DIVERSITY AND SIMILARITY METRICS ######################
 ```{r}
 # Shannon Index (Lan)
+shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
+shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
+shannon_SortOut <- -sum(SortOut$abund*log(SortOut$abund))             # calculate shannon index after first expansion/passage
+shannon_FinalCounts <- -sum(FinalCounts$abund*log(FinalCounts$abund)) # calculate shannon index after Bulk expansion
+shannon_exp_pop <- -sum(exp_pop$abund*log(exp_pop$abund))              # calculate shannon index of experimental population
+shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculate shannon index of frozen population
 
 
 # Bray-Curtis Index (Caro)

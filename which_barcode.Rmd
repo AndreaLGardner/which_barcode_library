@@ -24,8 +24,9 @@ num_passages = 3           # number of expansions
 ```{r}
 sd_growth_rate = 0.003        # standard deviation around mean growth rate [1/hr]
 k_96well = 55e3               # carrying capacity of a 96-well plate [number of cells]
-prob_cellsort_death = 0.15    # probability of death after cell sort [ ]
-prob_passage_death = 0.05     # cells lost during routine passaging [ ]
+prob_cellsort_death = 0.15    # fraction of cell death due to cell sort [ ]
+prob_passage_death = 0.05     # fraction of cells lost during routine passaging or vessel change [ ]
+prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle []]
 ```
 
 
@@ -54,13 +55,18 @@ solvet <- function(g, N0, Nfinal, k)
 # Determine time to reach number of cells equivalent to 80% vessel capacity from known starting number of cells (t_expand)
 # Then simulate growth of each subclone to t_expand and store new cell counts and abundance in data frame, return new data frame
 
-grow_cells <- function(df, K)
-  {
-      max_gr = max(df$gr)                                                           # calculate max growth rate of selected cells
-    t_expand = solvet(g = max_gr, N0 = sum(df$counts), Nfinal = 0.80*K, k = K)      # solve logistic growth equation for expansion time  
-      df_out <- df %>% select(-abund) %>%  
-              mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = K)),   # solve logistic growth for N at expansion time for each Cell_ID        
-                     abund = counts/sum(counts))                                          # determine abundance of each Cell_ID in population
+grow_cells <- function(df, K, t_expand)
+  {   
+    max_gr = max(df$gr)                                                                 # calculate max growth rate of selected cells
+    if(missing(t_expand))
+      {
+        t_expand = solvet(g = max_gr, N0 = sum(df$counts), Nfinal = 0.80*K, k = K)      # solve logistic growth equation for expansion time
+      }  
+    df_out <- df %>% select(-abund) %>%  
+            mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = K)),   # solve logistic growth for N at expansion time for each Cell_ID        
+                   abund = counts/sum(counts))                                          # determine abundance of each Cell_ID in population
+    df_out <- df_out[df_out$counts >= 0, ]                                              # remove rows with 0 or less counts
+    
     rownames(df_out) <- NULL
     return(df_out)
   }
@@ -86,22 +92,19 @@ random_cell_loss <- function(df, prob_death)
                                 mutate(counts = counts - num_cells_lost) %>%         # calculate new counts by subtracting num_cells_lost occurrences from previous count
                                 mutate(abund = counts/sum(counts) ) %>%              # calculate new abundance data
                                 select(-num_cells_lost)                              # remove unnecessary columns
-    
     df_out <- df_out[df_out$counts >= 0, ]                                           # remove rows with 0 or less counts
-    rownames(df_out) <- NULL
     
+    rownames(df_out) <- NULL
     return(df_out)
   }
 
 ```
 
 
-
 ############ SORT PHASE ####################################
 ```{r}
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
-
 OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
             add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
                        counts = c(rep(1,library_size)) ) %>%                              # set initial count of each subclone to 1
@@ -113,31 +116,37 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death)
 
 ### EXPAND CELLS
 # (3) Simulate growth of each subclone to 80% vessel carrying capacity and store new cell counts and abundance in data frame
-SortGrow <- grow_cells(df = SortMatrix, K = k_96well)
+  SortGrow <- grow_cells(df = SortMatrix, K = k_96well)
+   SortOut <- random_cell_loss(df = SortGrow, prob_death = prob_passage_death)
 
-SortOut <- random_cell_loss(df = SortGrow, prob_death = prob_passage_death)
-
-print(paste("total number of cells after expansion = ",sum(SortGrow$counts)))
-print(paste("total number of cells after replating = ",sum(SortOut$counts)))
+print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
+print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 ```
 
 ######### BULK EXPANSION PHASE #############################
 ```{r}
-# take SortOut as input
 
-# determine time (t_expand) to get to final_cell_count based on max gr in data frame
+    max_gr = max(SortOut$gr)                                                                                  # take SortOut as input and determine time (t_expand) to get to final_cell_count based on max gr in data frame
+  t_expand = solvet(g = max_gr, N0 = sum(SortOut$counts), Nfinal = final_cell_count, k = 1.2*final_cell_count)# solve logistic growth equation for expansion time
+t_interval = t_expand/(num_passages-1)                                                                        # Divide time into intervals, i.e. t_interval =  t_expand / num_passages-1
 
-# Divide time into intervals, i.e. t_interval =  t_expand / num_passages-1
+FinalCounts <- SortOut                                                                                        # Initialize input for looping function
+for (i in seq(1,(num_passages-1)))                                                                            # Simulate logistic growth and stochastic cells loss num_passages-1 times over t_interval
+  {
+    NewCounts <- grow_cells(df = FinalCounts, K = 1.2*final_cell_count, t_expand = t_interval)
+    FinalCounts <- NewCounts
+  }
 
-# Simulate logistic growth and stochatic cells loss similar to steps 4 and 5 above for each time step
-
+print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
+print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
 ```
-
-
 
 ##### [optional] FREEZE/THAW PHASE #########################
 ```{r}
+# need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
 
+# FreezeOut <- random_cell_loss(df = FinalCounts, prob_death = prob_freezethaw_death)
+# print(paste("total number of cells after freeze/thaw:  ",sum(FreezeOut$counts), "cells"))
 ```
 
 

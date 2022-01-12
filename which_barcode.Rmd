@@ -25,7 +25,7 @@ num_passages = 3           # number of expansions
 sd_growth_rate = 0.003        # standard deviation around mean growth rate [1/hr]
 k_96well = 55e3               # carrying capacity of a 96-well plate [number of cells]
 prob_cellsort_death = 0.15    # fraction of cell death due to cell sort [ ]
-prob_passage_death = 0.05     # fraction of cells lost during routine passaging or vessel change [ ]
+prob_passage_death = 0.10     # fraction of cells lost during routine passaging or vessel change [ ]
 prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle []]
 ```
 
@@ -72,12 +72,23 @@ prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle 
 
 
 ### STOCHASTIC SELECTION AT PASSAGE/EXPANSION/SORT/FREEZE/THAW ######
-  random_cell_loss <- function(df, prob_death)
+  random_cell_loss <- function(df, prob_death, replace = TRUE)
     {
-             cells_lost  = sample(    x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
-                                  size = round(prob_death*sum(df$counts)),             # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
-                                  prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
-                               replace = TRUE)                                         
+      if(replace == TRUE)
+        {
+          cells_lost  = sample(    x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
+                                    size = round(prob_death*sum(df$counts)),             # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                                    prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
+                                 replace = TRUE) 
+      }
+      if(replace == FALSE)
+        {
+          cells_lost  = sample(    x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
+                                    size = round(prob_death*sum(df$counts)),             # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                                    prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
+                                 replace = FALSE) 
+        }
+                                                     
     
       num_lost           <- data.frame(table(cells_lost))                              # count occurrences of each cell id in cells_lost_expand
       colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')                             # rename columns
@@ -110,7 +121,7 @@ OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                   
             mutate(abund = counts/sum(counts))                                            # add new column for subclonal abundance
 
 # (2) Stochastic selection of cells that die post-cell sort
-SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death)
+SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, replace = FALSE)
 
 
 ### EXPAND CELLS
@@ -152,10 +163,6 @@ print(paste("total number of cells after", round(t_expand/24,2), " days of expan
 ######### EXPERIMENT PHASE #################################
 ```{r}
 # How many unique barcodes were lost compared to what was expected
-writeLines(paste("Sorted library size:", library_size, "\nFinal library size before freezebacks: ", length(unique(FinalCounts$Cell_ID)) ) )
-
-sum(FinalCounts$counts)
-
 num_cells_experiment <- 2e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
  cell_per_freezeback <- 1e6

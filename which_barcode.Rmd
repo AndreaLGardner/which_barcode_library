@@ -9,53 +9,80 @@ library(dplyr)
 library(tidyverse)
 ```
 
-## Creating matrix i hope?
-
-```{r }
-library_size=1000
-OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>% add_column(gr= rnorm(nrow(.), mean=0.022, sd=0.004)) %>% add_column(counts= c(rep(1,library_size)))%>% mutate(abund= OGcounts$counts/sum(OGcounts$counts))
-
- 
+############ USER INPUTS ####################################
+```{r}
+library_size = 1000        # number of barcoded cells sorted/intended library size
+mean_growth_rate = 0.022   # mean growth rate of cell line to be used
+cell_doubl_time = NA       # estimated cell doubling time
 
 ```
 
 
-```{r }
-prob_cellsort_death=0.15
-
-#sample(x=x, size=n, prob=p)
-
-cells_lost_sort= sample(x=OGcounts$Cell_ID, size=round(prob_cellsort_death*sum(OGcounts$counts)), prob =OGcounts$abund )
-
+############ SET INPUTS ####################################
+```{r}
+sd_growth_rate = 0.003 # standard deviation around mean growth rate
+prob_cellsort_death = 0.15 # probability of death after cell sort
 ```
 
+
+######## SET SIMPLE FUNCTIONS ##############################
 ```{r}
 `%not in%` <- negate(`%in%`)
-SortMatrix<- OGcounts[OGcounts$Cell_ID %not in% cells_lost_sort,]
 
-```
-```{r}
+### LOGISTIC GROWTH ###
 # function to solve a logistic growth equation for the final number of cells given growth rate, starting number of cells, carrying capacity and the final time point
-solveN <- function(g, N0, tfinal, k){
-Nfinal <- (k*N0)/N0+(k-N0)*exp(g*tfinal)
-return(Nfinal)
-}
+solveN <- function(g, N0, tfinal, k)
+  {
+    Nfinal <- (k*N0)/N0+(k-N0)*exp(g*tfinal)
+    return(Nfinal)
+  }
+
+### LOGISTIC GROWTH ###
 # function to solve a logistic growth equation for the final time given growth rate, starting number of cells, carrying capacity, and the final number of cells
-solvet <- function(g, N0, Nfinal, k){
-  tfinal <- -(ln((N0*(1-(k/Nfinal)))/(N0-k)))/g
+solvet <- function(g, N0, Nfinal, k)
+  {
+  tfinal <- -(log((N0*(1-(k/Nfinal)))/(N0-k)))/g
   return(tfinal)
-}
-```
-
-```{r}
-SortMeangr= mean(SortMatrix$gr)
-days= solvet(SortMeangr,sum(SortMatrix$counts), 50e3, k=55e3)
+  }
 
 ```
 
 
-```{r}
-SortMatrix %>% select(-abund) %>% mutate(counts= floor(solveN(SortMatrix$gr,SortMatrix$counts,days)))%>% mutate(abund= counts/sum(SortMatrix$counts))
 
+############ SORT PHASE ####################################
+```{r}
+
+### SORT CELLS
+# (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
+
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
+            add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
+                       counts = c(rep(1,library_size)) )                                  # set initial count of each subclone to 1
+
+OGcounts <- OGcounts %>% mutate(abund= counts/sum(OGcounts$counts))                       # add new column for subclonal abundance
+
+# (2) Stochastic selection of cells that die post-cell sort
+cells_lost_sort = sample(    x = OGcounts$Cell_ID,                                        # choose from set of Cell_IDs in data frame
+                          size = round(prob_cellsort_death*sum(OGcounts$counts)),         # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                          prob = OGcounts$abund )                                         # weight probability of Cell_ID selection by abundance
+
+
+SortMatrix <- OGcounts[OGcounts$Cell_ID %not in% cells_lost_sort, ]                       # store selected cells in new data frame
+
+
+# (3) Determine time to research 50k cells from starting number of cells post-sort
+SortMeangr = mean(SortMatrix$gr)                                                          # calculate mean growth rate of selected cells
+t_expand = solvet(g = SortMeangr, N0 = sum(SortMatrix$counts), Nfinal = 50e3, k = 55e3)   # solve logistic growth equation for expansion time
+
+
+# (4) Simulate growth of each subclone to t_expand and store new cell counts and abundance in data frame
+
+
+
+SortOut <- SortMatrix %>% select(-abund) %>% 
+           mutate(counts = solveN(g = gr, N0 = counts, tf = t_expand, k = 55e3),         # 
+                   abund = counts/sum(counts))
+
+head(SortOut)
 ```
 

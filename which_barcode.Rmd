@@ -33,7 +33,7 @@ prob_passage_death = 0.05     # cells lost during routine passaging [ ]
 ```{r}
 `%not in%` <- negate(`%in%`)
 
-### LOGISTIC GROWTH ###
+### LOGISTIC GROWTH, NUMBER ###
 # function to solve a logistic growth equation for the final number of cells given growth rate, starting number of cells, carrying capacity and the final time point
 solveN <- function(g, N0, tfinal, k)
   {
@@ -41,12 +41,36 @@ solveN <- function(g, N0, tfinal, k)
     return(Nfinal)
   }
 
-### LOGISTIC GROWTH ###
+### LOGISTIC GROWTH, TIME ###
 # function to solve a logistic growth equation for the final time given growth rate, starting number of cells, carrying capacity, and the final number of cells
 solvet <- function(g, N0, Nfinal, k)
   {
   tfinal <- -(log((N0*(1-(k/Nfinal)))/(N0-k)))/g  
   return(tfinal)
+  }
+
+### STOCHASTIC SELECTION AT PASSAGE/EXPANSION ######
+
+passage_cells <- function(df)
+  {
+    cells_lost_expand = sample(    x = df$Cell_ID,                                   # choose from set of Cell_IDs in data frame
+                            size = round(prob_passage_death*sum(df$counts)),         # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                            prob = df$abund,                                         # weight probability of Cell_ID selection by abundance
+                            replace = TRUE)                                         
+  
+    num_lost           <- data.frame(table(cells_lost_expand))                 # count occurrences of each cell id in cells_lost_expand
+    colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')                       # rename columns
+    num_lost$Cell_ID   <- as.integer(as.character(num_lost$Cell_ID))           # change data type of cell_id column to intege
+      
+    
+    update_counts <- left_join(df, num_lost)                                           # join with original data frame with current cell counts
+    update_counts$num_cells_lost[is.na(update_counts$num_cells_lost)] <- 0
+    
+    df_out <- update_counts %>% select(-abund) %>%                                       # remove old abundance data
+                                mutate(counts = counts - num_cells_lost) %>%             # calculate new counts by subtracting num_cells_lost occurences from previous count
+                                mutate(abund = counts/sum(counts) ) %>%                  # calculate new abundance data
+                                select(-num_cells_lost)                                  # remove unnecessary columns
+    return(df_out)
   }
 
 ```
@@ -75,7 +99,7 @@ SortMatrix <- OGcounts[OGcounts$Cell_ID %not in% cells_lost_sort, ]             
 # (3) Determine time to research ~50k cells from starting number of cells post-sort
 SortMax_gr = max(SortMatrix$gr)                                                           # calculate max growth rate of selected cells
 num_uniq = length(unique(SortMatrix$Cell_ID))
-t_expand = solvet(g = SortMax_gr, N0 = sum(SortMatrix$counts), Nfinal = 0.85*k_96well, k = k_96well)   # solve logistic growth equation for expansion time
+t_expand = solvet(g = SortMax_gr, N0 = sum(SortMatrix$counts), Nfinal = 0.80*k_96well, k = k_96well)   # solve logistic growth equation for expansion time
 
 
 ### EXPAND CELLS
@@ -84,26 +108,7 @@ SortGrow <- SortMatrix %>% select(-abund) %>%
            mutate(counts = floor(solveN(g = gr, N0 = counts, tf = t_expand, k = k_96well)), # solve logistic growth for N at expansion time for each Cell_ID        
                    abund = counts/sum(counts))                                              # determine abundance of each Cell_ID in population
 
-
-# (5) Stochastic selection of cells that die during expansion to new vessel
-cells_lost_expand = sample(    x = SortGrow$Cell_ID,                                     # choose from set of Cell_IDs in data frame
-                          size = round(prob_passage_death*sum(SortGrow$counts)),         # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
-                          prob = SortGrow$abund,                                         # weight probability of Cell_ID selection by abundance
-                          replace = TRUE)                                         
-
-
-num_lost <- data.frame(table(cells_lost_expand))                 # count occurrences of each cell id in cells_lost_expand
-colnames(num_lost) <- c('Cell_ID', 'num_cells_lost')             # rename columns
-  num_lost$Cell_ID <- as.integer(as.character(num_lost$Cell_ID)) # change data type of cell_id column to intege
-  
-
-update_counts <- left_join(SortGrow, num_lost)                                           # join with original data frame with current cell counts
-update_counts$num_cells_lost[is.na(update_counts$num_cells_lost)] <- 0
-
-SortOut <- update_counts %>% select(-abund) %>%                                       # remove old abundance data
-                             mutate(counts = counts - num_cells_lost) %>%             # calculate new counts by subtracting num_cells_lost occurences from previous count
-                             mutate(abund = counts/sum(counts) ) %>%                  # calculate new abundance data
-                             select(-num_cells_lost)                                  # remove unnecessary columns
+SortOut <- passage_cells(SortGrow)
 
 print(paste("total number of cells after expansion = ",sum(SortGrow$counts)))
 print(paste("total number of cells after replating = ",sum(SortOut$counts)))

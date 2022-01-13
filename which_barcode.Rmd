@@ -267,9 +267,14 @@ jaccard<- function(counts1, counts2) {
 
 jaccard(experimental_population, frozen_populations)
 
-# Cosine
+# Cosine----- i dont trust what i am doing here at all
+exp_pop_cos<- as.numeric(exp_pop_wide)
+fro_pop_cos<- as.numeric(fro_pop_wide)
+
+cos_test<- cbind(exp_pop_cos,fro_pop_cos)
 
 
+cosine(cos_test)
 
 ```
 

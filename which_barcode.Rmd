@@ -12,7 +12,7 @@ library(vegan)
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(1000)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 10e6    # number of cells needed for experiments and freezebacks
@@ -112,11 +112,19 @@ prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle 
 ```
 
 
-############ SORT PHASE ####################################
+
+
+
+
+
+
 ```{r}
+############################################################
+############ SORT PHASE ####################################
+############################################################
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
-OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size[1]))) %>%                             # create matrix with cells equal to sorted library size
             add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
                        counts = c(rep(1,library_size)) ) %>%                              # set initial count of each subclone to 1
             mutate(abund = counts/sum(counts))                                            # add new column for subclonal abundance
@@ -130,12 +138,12 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
   SortGrow <- grow_cells(df = SortMatrix, K = k_96well)
    SortOut <- random_cell_loss(df = SortGrow, prob_death = prob_passage_death)
 
-print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
-```
+#print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 
+############################################################
 ######### BULK EXPANSION PHASE #############################
-```{r}
+############################################################
 
     max_gr = max(SortOut$gr)                                                                                  # take SortOut as input and determine time (t_expand) to get to final_cell_count based on max gr in data frame
   t_expand = solvet(g = max_gr, N0 = sum(SortOut$counts), Nfinal = final_cell_count, k = 1.2*final_cell_count)# solve logistic growth equation for expansion time
@@ -149,21 +157,23 @@ for (i in seq(1,(num_passages-1)))                                              
     FinalCounts <- NewCounts
   }
 
-print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
-```
+#print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
 
+
+############################################################
 ##### [optional] FREEZE/THAW PHASE #########################
-```{r}
+############################################################
 # need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
 
 # FreezeOut <- random_cell_loss(df = FinalCounts, prob_death = prob_freezethaw_death)
 # print(paste("total number of cells after freeze/thaw:  ",sum(FreezeOut$counts), "cells"))
-```
 
 
+
+############################################################
 ######### EXPERIMENT PHASE #################################
-```{r}
+############################################################
 # How many unique barcodes were lost compared to what was expected
 num_cells_experiment <- 2e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
@@ -179,7 +189,7 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size, 
+writeLines(paste("                  Sorted library size:",   library_size[1], 
                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
@@ -194,11 +204,11 @@ colnames(fro_pop) <- c('Cell_ID', 'counts')                             # rename
 fro_pop$Cell_ID   <- as.integer(as.character(fro_pop$Cell_ID))
 fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
-```
 
+############################################################
+###### DIVERSITY AND SIMILARITY METRICS ####################
+############################################################
 
-###### DIVERSITY AND SIMILARITY METRICS ######################
-```{r}
 # Shannon Index (Lan)
 shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
 shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
@@ -240,6 +250,11 @@ jaccard(experimental_population, frozen_populations)
 
 
 ```
+
+
+
+
+
 
 
 

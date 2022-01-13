@@ -210,22 +210,24 @@ shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculat
 
 # Bray-Curtis Index (Caro)
 #General set up to be able to do the Bray-Curtis---- need help with reshaping all the data in a better way
-exp_replicates=2                                                                                  # ask user how many replicates will be in experiment
-cells_per_replicate=num_cells_experiment/exp_replicates                                           # determine number of cells in each replicate
-exp_population1 <- experimental_population[1:cells_per_replicate]                                 # split the experiment population up according to the number of replicates wanted
-exp_population2<- experimental_population[1+cells_per_replicate:length(experimental_population)]
+exp_replicates=4
+num_cells_experiment=2e6
+cells_per_replicate=num_cells_experiment/exp_replicates 
 
-replicate1<- data.frame(table(exp_population1))                                                   # make replicate back into data frame
-colnames(replicate1)<- c('Cell_ID', 'Counts')                                                     # rename columns
-replicate1<- replicate1 %>% spread(Cell_ID, Counts)                                               # make into wide form by having each Cell_ID be its own column
+all_replicate<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0))
 
-replicate2<- data.frame(table(exp_population2))                                                   #repeat for other replicates
-colnames(replicate2)<- c('Cell_ID', 'Counts')                       
-replicate2<- replicate2 %>% spread(Cell_ID, Counts)
+split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate))
 
-all_replicates<- rbind(replicate1,replicate2)                                                     #combine all replicates so that each row is one replicate
-vegdist(all_replicates, "bray")                                                                   #calculate Bray-Curtis--- spits out one number
+for (chunk in split_replicates)
+{
+  replicateN <- data.frame(table(chunk))                                                   # make replicate back into data frame
+  colnames(replicateN)<- c('Cell_ID', 'Counts')                                                     # rename columns
+  replicateN<- replicateN %>% spread(Cell_ID, Counts)                                       # make into wide form by having each Cell_ID be its own column
+  all_replicate<- rbind(all_replicate,replicateN)
+}
+vegdist(all_replicate,'bray')
 
+                                                                
 
 # Jaccard (double check me, unsure if I did this right or not)
 jaccard<- function(counts1, counts2) {

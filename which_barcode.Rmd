@@ -12,7 +12,7 @@ library(vegan)
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = c(1000)        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(100, 200)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 10e6    # number of cells needed for experiments and freezebacks
@@ -117,16 +117,34 @@ prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle 
 
 
 
-
+######## RUN SIMULATION ####################################
 ```{r}
+# set random seed for first simulation
+set.seed(1212)
+
+# setup empty data frame to store simulation outputs
+df <- data.frame(library_size = NA, final_cell_count = NA, SI_experimental = NA, replicate = NA)
+
+for(barcodes in seq(1,length(library_size))){
+  for(j in seq(1:3))
+  {
+
+
+
+
+
+
+
+
+
 ############################################################
 ############ SORT PHASE ####################################
 ############################################################
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
-OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size[1]))) %>%                             # create matrix with cells equal to sorted library size
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size[barcodes]))) %>%                             # create matrix with cells equal to sorted library size
             add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
-                       counts = c(rep(1,library_size)) ) %>%                              # set initial count of each subclone to 1
+                       counts = c(rep(1,library_size[barcodes])) ) %>%                              # set initial count of each subclone to 1
             mutate(abund = counts/sum(counts))                                            # add new column for subclonal abundance
 
 # (2) Stochastic selection of cells that die post-cell sort
@@ -189,9 +207,9 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size[1], 
-                 "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
-                 "\n Experimental population library size:", length(unique(experimental_population))) )  
+# writeLines(paste("                  Sorted library size:",   library_size[1], 
+#                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
+#                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
 exp_pop           <- data.frame(table(experimental_population))                              # count occurrences of each cell id in cells_lost_expand
 colnames(exp_pop) <- c('Cell_ID', 'counts')                             # rename columns
@@ -216,6 +234,8 @@ shannon_SortOut <- -sum(SortOut$abund*log(SortOut$abund))             # calculat
 shannon_FinalCounts <- -sum(FinalCounts$abund*log(FinalCounts$abund)) # calculate shannon index after Bulk expansion
 shannon_exp_pop <- -sum(exp_pop$abund*log(exp_pop$abund))              # calculate shannon index of experimental population
 shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculate shannon index of frozen population
+
+
 
 
 # Bray-Curtis Index (Caro)
@@ -247,6 +267,29 @@ jaccard<- function(counts1, counts2) {
 jaccard(experimental_population, frozen_populations)
 
 # Cosine
+
+
+
+
+
+#########################################################################################
+######## STORE OUTS PUTS IN DATA FRAME AND RETURN DATA FRAME TO BEGINNING OF LOOP #######
+#########################################################################################
+
+# make sure order of outs matches columns of orginial empty df
+
+outs <- c(       library_size = library_size[barcodes], 
+             final_cell_count = sum(FinalCounts$counts), 
+              SI_experimental = shannon_exp_pop, 
+                    replicate = j)
+
+df <- rbind(df, outs)
+
+  }
+  
+}
+
+df
 
 
 ```

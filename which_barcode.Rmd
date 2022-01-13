@@ -227,7 +227,6 @@ for (chunk in split_replicates)
 }
 vegdist(all_replicate,'bray')
 
-                                                                
 
 # Jaccard (double check me, unsure if I did this right or not)
 jaccard<- function(counts1, counts2) {

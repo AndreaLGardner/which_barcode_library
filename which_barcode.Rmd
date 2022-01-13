@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyverse)
 library(vegan)
+library(lsa)
 ```
 
 ############ USER INPUTS ####################################
@@ -28,6 +29,7 @@ k_96well = 55e3               # carrying capacity of a 96-well plate [number of 
 prob_cellsort_death = 0.15    # fraction of cell death due to cell sort [ ]
 prob_passage_death = 0.10     # fraction of cells lost during routine passaging or vessel change [ ]
 prob_freezethaw_death = 0.15  # fraction of cells lost due to freeze/thaw cycle []]
+prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passage
 ```
 
 
@@ -128,8 +130,19 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
 ### EXPAND CELLS
 # (3) Simulate growth of each subclone to 80% vessel carrying capacity and store new cell counts and abundance in data frame
   SortGrow <- grow_cells(df = SortMatrix, K = k_96well)
-   SortOut <- random_cell_loss(df = SortGrow, prob_death = prob_passage_death)
+  SortOut <- random_cell_loss(df = SortGrow, prob_death = prob_passage_death)
 
+   
+# (4) Complete removal of some colonies due to replating 
+   complete_lost= sample(x=SortOut$Cell_ID, size=round(prob_firstpassage_death* length(SortOut$Cell_ID)), prob=SortOut$abund)
+   complete_num_lost<- data.frame(table(complete_lost))
+   colnames(complete_num_lost)<- c('Cell_ID','complete_cells_lost')
+   complete_num_lost$Cell_ID <- as.integer(as.character(complete_num_lost$Cell_ID))
+   
+
+  SortOut<- anti_join(SortOut, complete_num_lost, by = c("Cell_ID" = "Cell_ID"))
+   
+   
 print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
 print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 ```
@@ -209,23 +222,32 @@ shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculat
 
 
 # Bray-Curtis Index (Caro)
-#General set up to be able to do the Bray-Curtis---- need help with reshaping all the data in a better way
+#Bray Curtis for looking at similarites between replicates, matrix shaping will be different for other cases
 exp_replicates=4
 num_cells_experiment=2e6
 cells_per_replicate=num_cells_experiment/exp_replicates 
 
-all_replicate<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0))
+all_replicate<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0)) #create empty matrix based off number of Cell ID in Final Counts
 
-split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate))
+split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate))  #split experimental population into even chunks
 
 for (chunk in split_replicates)
 {
   replicateN <- data.frame(table(chunk))                                                   # make replicate back into data frame
-  colnames(replicateN)<- c('Cell_ID', 'Counts')                                                     # rename columns
-  replicateN<- replicateN %>% spread(Cell_ID, Counts)                                       # make into wide form by having each Cell_ID be its own column
-  all_replicate<- rbind(all_replicate,replicateN)
+  colnames(replicateN)<- c('Cell_ID', 'counts')                                                     # rename columns
+  replicateN<- replicateN %>% spread(Cell_ID, counts)                                       # make into wide form by having each Cell_ID be its own column
+  all_replicate<- rbind(all_replicate,replicateN)  #combines all replicates together
 }
 vegdist(all_replicate,'bray')
+
+#Bray-Curtis Index when looking at frozen populations and experimental population
+fro_exp_BC<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0))
+fro_pop_wide<- fro_pop%>% select(-abund) %>%spread(Cell_ID, counts)
+exp_pop_wide<- exp_pop%>% select(-abund)%>% spread(Cell_ID, counts)
+fro_exp_BC<- rbind(fro_exp_BC,exp_pop_wide,fro_pop_wide)
+vegdist(fro_exp_BC, 'bray')
+
+
 
 
 # Jaccard (double check me, unsure if I did this right or not)
@@ -238,6 +260,7 @@ jaccard<- function(counts1, counts2) {
 jaccard(experimental_population, frozen_populations)
 
 # Cosine
+
 
 
 ```

@@ -419,7 +419,7 @@ ggplot(min_cells, aes(x=cells_per_rep, y=BC_similarity, group = cells_per_rep, c
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width=0.1) + theme_few() + scale_x_log10() +
   xlab('Number of cells per replicate') +
-  theme(legend.position=c(0.88, .75), legend.background = element_rect(colour = "black", size = 0.1)) +
+  theme(legend.position=c(0.80, .7), legend.background = element_rect(colour = "black", size = 0.1)) +
   labs(color = 'initial library size') +
   ggtitle('Similarity of replicates in experimental population')
 

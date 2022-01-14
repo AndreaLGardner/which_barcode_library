@@ -165,9 +165,9 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
 
    
 # (4) Complete removal of some colonies due to replating 
-   complete_lost= sample(x=SortOut$Cell_ID[SortOut$counts < 200], size=round(prob_firstpassage_death* length(SortOut$Cell_ID)), prob=SortOut$abund)
-   complete_num_lost<- data.frame(table(complete_lost))
-   colnames(complete_num_lost)<- c('Cell_ID','complete_cells_lost')
+      complete_lost = sample(x = SortOut$Cell_ID[SortOut$counts < 200], size = round(prob_firstpassage_death* length(SortOut$Cell_ID)))
+           complete_num_lost <- data.frame(table(complete_lost))
+ colnames(complete_num_lost) <- c('Cell_ID','complete_cells_lost')
    complete_num_lost$Cell_ID <- as.integer(as.character(complete_num_lost$Cell_ID))
    
 

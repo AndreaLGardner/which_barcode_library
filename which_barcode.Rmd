@@ -9,15 +9,18 @@ library(dplyr)
 library(tidyverse)
 library(vegan)
 library(lsa)
+library(ggthemes)
 ```
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(100, 500, 1000)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
-final_cell_count = 10e6    # number of cells needed for experiments and freezebacks
+final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
 num_passages = 3           # number of expansions
+num_cells_experiment = 1e6
+ cell_per_freezeback = 1e6
 
 ```
 
@@ -79,16 +82,16 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
     {
       if(replace == TRUE)
         {
-          cells_lost  = sample(    x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
+          cells_lost  = sample(        x = df$Cell_ID,                                   # choose from set of Cell_IDs in data frame
                                     size = round(prob_death*sum(df$counts)),             # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
                                     prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
                                  replace = TRUE) 
       }
       if(replace == FALSE)
         {
-          cells_lost  = sample(    x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
-                                    size = round(prob_death*sum(df$counts)),             # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
-                                    prob = df$abund,                                     # weight probability of Cell_ID selection by abundance
+          cells_lost  = sample(        x = df$Cell_ID,                                  # choose from set of Cell_IDs in data frame
+                                    size = round(prob_death*sum(df$counts)),            # select number of cells equal to current number of cells multiplied by probability of death post cell sort (prob_cellsort_death)
+                                    prob = df$abund,                                    # weight probability of Cell_ID selection by abundance
                                  replace = FALSE) 
         }
                                                      
@@ -113,14 +116,49 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
 
 ```
 
-
-############ SORT PHASE ####################################
 ```{r}
+# set random seed for first simulation
+set.seed(1212)
+
+# setup empty data frame to store simulation outputs
+#df <- data.frame(library_size = NA, final_cell_count = NA, SI_experimental = NA, replicate = NA)
+
+res <- data.frame( library_size = NA, 
+               final_cell_count = NA,
+           final_total_evenness = NA,
+                 final_total_SI = NA,
+              cells_per_aliquot = NA,
+             number_freezebacks = NA,
+                     aliquot_BC = NA,
+          experimental_evenness = NA,
+                experimental_SI = NA,
+             experimental_BCsim = NA,
+                       cells_10 = NA,
+                      cells_100 = NA,
+                     cells_1000 = NA,
+                    cells_10000 = NA,
+                   cells_100000 = NA,
+                      replicate = NA    )
+
+
+
+for(barcodes in seq(1,length(library_size))){
+  for(j in seq(1:3))
+  {
+
+
+
+
+
+############################################################
+############ SORT PHASE ####################################
+############################################################
+
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
-OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size[barcodes]))) %>%                             # create matrix with cells equal to sorted library size
             add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
-                       counts = c(rep(1,library_size)) ) %>%                              # set initial count of each subclone to 1
+                       counts = c(rep(1,library_size[barcodes])) ) %>%                              # set initial count of each subclone to 1
             mutate(abund = counts/sum(counts))                                            # add new column for subclonal abundance
 
 # (2) Stochastic selection of cells that die post-cell sort
@@ -134,21 +172,25 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
 
    
 # (4) Complete removal of some colonies due to replating 
-   complete_lost= sample(x=SortOut$Cell_ID, size=round(prob_firstpassage_death* length(SortOut$Cell_ID)), prob=SortOut$abund)
-   complete_num_lost<- data.frame(table(complete_lost))
-   colnames(complete_num_lost)<- c('Cell_ID','complete_cells_lost')
+      complete_lost = sample(x = SortOut$Cell_ID[SortOut$counts < 200], size = round(prob_firstpassage_death* length(SortOut$Cell_ID)))
+           complete_num_lost <- data.frame(table(complete_lost))
+ colnames(complete_num_lost) <- c('Cell_ID','complete_cells_lost')
    complete_num_lost$Cell_ID <- as.integer(as.character(complete_num_lost$Cell_ID))
    
 
-  SortOut<- anti_join(SortOut, complete_num_lost, by = c("Cell_ID" = "Cell_ID"))
+  #SortOut <- anti_join(SortOut, complete_num_lost, by = c("Cell_ID" = "Cell_ID"))
+  
+  SortOut <- SortOut[SortOut$Cell_ID %not in% complete_num_lost$Cell_ID, ]
+  rownames(SortOut) <- NULL
    
    
-print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
-```
+#print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 
+
+############################################################
 ######### BULK EXPANSION PHASE #############################
-```{r}
+############################################################
 
     max_gr = max(SortOut$gr)                                                                                  # take SortOut as input and determine time (t_expand) to get to final_cell_count based on max gr in data frame
   t_expand = solvet(g = max_gr, N0 = sum(SortOut$counts), Nfinal = final_cell_count, k = 1.2*final_cell_count)# solve logistic growth equation for expansion time
@@ -162,25 +204,26 @@ for (i in seq(1,(num_passages-1)))                                              
     FinalCounts <- NewCounts
   }
 
-print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
-```
+#print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
 
+
+############################################################
 ##### [optional] FREEZE/THAW PHASE #########################
-```{r}
+############################################################
+
 # need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
 
 # FreezeOut <- random_cell_loss(df = FinalCounts, prob_death = prob_freezethaw_death)
 # print(paste("total number of cells after freeze/thaw:  ",sum(FreezeOut$counts), "cells"))
-```
 
 
+############################################################
 ######### EXPERIMENT PHASE #################################
-```{r}
+############################################################
+
 # How many unique barcodes were lost compared to what was expected
-num_cells_experiment <- 2e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
- cell_per_freezeback <- 1e6
       num_freezbacks <- floor(num_cells_freeze/cell_per_freezeback)
 
 
@@ -192,9 +235,9 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size, 
-                 "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
-                 "\n Experimental population library size:", length(unique(experimental_population))) )  
+# writeLines(paste("                  Sorted library size:",   library_size[barcodes], 
+#                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
+#                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
 exp_pop           <- data.frame(table(experimental_population))                              # count occurrences of each cell id in cells_lost_expand
 colnames(exp_pop) <- c('Cell_ID', 'counts')                             # rename columns
@@ -207,26 +250,26 @@ colnames(fro_pop) <- c('Cell_ID', 'counts')                             # rename
 fro_pop$Cell_ID   <- as.integer(as.character(fro_pop$Cell_ID))
 fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
-```
 
+############################################################
+###### DIVERSITY AND SIMILARITY METRICS ####################
+############################################################
 
-###### DIVERSITY AND SIMILARITY METRICS ######################
-```{r}
 # Shannon Index (Lan)
-shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
-shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
-shannon_SortOut <- -sum(SortOut$abund*log(SortOut$abund))             # calculate shannon index after first expansion/passage
+   shannon_OGcounts <- -sum(   OGcounts$abund*log(OGcounts$abund))    # calculate shannon index of initial cell library before cell sort
+ shannon_SortMatrix <- -sum( SortMatrix$abund*log(SortMatrix$abund))  # calculate shannon index after cell sort
+    shannon_SortOut <- -sum(    SortOut$abund*log(SortOut$abund))     # calculate shannon index after first expansion/passage
 shannon_FinalCounts <- -sum(FinalCounts$abund*log(FinalCounts$abund)) # calculate shannon index after Bulk expansion
-shannon_exp_pop <- -sum(exp_pop$abund*log(exp_pop$abund))              # calculate shannon index of experimental population
-shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculate shannon index of frozen population
+    shannon_exp_pop <- -sum(    exp_pop$abund*log(exp_pop$abund))     # calculate shannon index of experimental population
+    shannon_fro_pop <- -sum(    fro_pop$abund*log(fro_pop$abund))     # calculate shannon index of frozen population
 
 # Shannon equitability index                                    # evenness
-sei_OGcounts <- shannon_OGcounts/log(nrow(OGcounts))
-sei_SortMatrix <- shannon_SortMatrix/log(nrow(SortMatrix))
-sei_SortOut <- shannon_SortOut/log(nrow(SortOut))
+   sei_OGcounts <-    shannon_OGcounts/log(nrow(OGcounts))
+ sei_SortMatrix <-  shannon_SortMatrix/log(nrow(SortMatrix))
+    sei_SortOut <-     shannon_SortOut/log(nrow(SortOut))
 sei_FinalCounts <- shannon_FinalCounts/log(nrow(FinalCounts))
-sei_exp_pop <- shannon_exp_pop/log(nrow(exp_pop))
-sei_fro_pop <- shannon_fro_pop/log(nrow(fro_pop))
+    sei_exp_pop <-     shannon_exp_pop/log(nrow(exp_pop))
+    sei_fro_pop <-     shannon_fro_pop/log(nrow(fro_pop))
 
 
 # Bray-Curtis Index (Caro)
@@ -258,31 +301,116 @@ vegdist(fro_exp_BC, 'bray')
 
 
 
-# Jaccard (double check me, unsure if I did this right or not)
-jaccard<- function(counts1, counts2) {
-  in_each = length(intersect(counts1, counts2))
-  in_either= length(counts1)+ length(counts2) - in_each
-  return(in_each/in_either)
+# # Jaccard (double check me, unsure if I did this right or not)
+# jaccard<- function(counts1, counts2) {
+#   in_each = length(intersect(counts1, counts2))
+#   in_either= length(counts1)+ length(counts2) - in_each
+#   return(in_each/in_either)
+# }
+# 
+# jaccard(experimental_population, frozen_populations)
+# 
+# # Cosine----- i dont trust what i am doing here at all
+# exp_pop_cos<- as.numeric(exp_pop_wide)
+# fro_pop_cos<- as.numeric(fro_pop_wide)
+# 
+# cos_test<- cbind(exp_pop_cos,fro_pop_cos)
+# 
+# 
+# lower.tri(cosine(as.matrix(cos_test)))
+
+
+
+############## compute similarity of replicate
+
+# num_replicates = 5
+# population = experimental_population
+# 
+# # for value in rep_cells c(10, 100, 1000, etc.), compute BC similarity score
+# #
+# 
+# bray_curtis(cell_per_replicate, replicates, population)
+#  
+# c(cells_10 = NA, cells_100 = NA, cells_1000 = NA, cells_10000 = NA, cells_100000 = NA )
+
+#########################################################################################
+######## STORE OUTS PUTS IN DATA FRAME AND RETURN DATA FRAME TO BEGINNING OF LOOP #######
+#########################################################################################
+# make sure order of outs matches columns of orginial empty df
+# 
+
+ 
+
+
+outs <- c(       library_size = library_size[barcodes], 
+             final_cell_count = sum(FinalCounts$counts),
+         final_total_evenness = sei_FinalCounts,
+               final_total_SI = shannon_FinalCounts,
+            cells_per_aliquot = cell_per_freezeback,
+           number_freezebacks = num_freezbacks,
+                   aliquot_BC = NA,
+        experimental_evenness = sei_exp_pop,
+              experimental_SI = shannon_exp_pop,
+           experimental_BCsim = NA,
+                     cells_10 = NA,
+                    cells_100 = NA,
+                   cells_1000 = NA,
+                  cells_10000 = NA,
+                 cells_100000 = NA,
+                    replicate = j)
+
+
+
+res <- rbind(res, outs)
+  
+  }
+  
 }
-
-jaccard(experimental_population, frozen_populations)
-
-# Cosine----- i dont trust what i am doing here at all
-exp_pop_cos<- as.numeric(exp_pop_wide)
-fro_pop_cos<- as.numeric(fro_pop_wide)
-
-cos_test<- cbind(exp_pop_cos,fro_pop_cos)
-
-
-cosine(cos_test)
+res
 
 ```
 
 
 
-
-###### PLOTTING AND ANALYSIS #################################
+############################################################
+###### PLOTTING AND ANALYSIS ###############################
+############################################################
 ```{r}
+
+############# EVENNNESS #########
+
+## Evenness of final library
+ggplot(res, aes(x = library_size, y = final_total_evenness, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ylim(0.7, 1) +
+  ggtitle('Expanded Library Evenness')
+
+## Evenness per aliquot/freezeback/experimental population
+ggplot(res, aes(x = library_size, y = experimental_evenness, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ylim(0.7, 1) +
+  ggtitle('Experimental Population/Freezeback Evenness')
+
+
+############# SHANNON DIVERSITY #########
+
+## Diversity of final library 
+ggplot(res, aes(x = library_size, y = final_total_SI, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Expanded Library Diversity - Shannon Index')
+
+## Diversity of aliquot/freezeback/experimental population
+ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Experimental Population/Freezeback - Shannon Index')
+
+############# BRAY-CURTIS SIMILARITY #########
+
+## Similarity of aliquot/freezeback/experimental populations
+ggplot(res, aes(x = library_size, y = aliquot_BC, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Experimental Population/Freezeback - Shannon Index')
+
 
 ```
 

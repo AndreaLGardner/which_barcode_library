@@ -38,8 +38,10 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
 
 ######## SET SIMPLE FUNCTIONS ##############################
 ```{r}
+#################################################### 
 `%not in%` <- negate(`%in%`)
 
+#################################################### 
 ### LOGISTIC GROWTH, NUMBER ###
 # function to solve a logistic growth equation for the final number of cells given growth rate, starting number of cells, carrying capacity and the final time point
   solveN <- function(g, N0, tfinal, k)
@@ -48,6 +50,7 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
       return(Nfinal)
     }
 
+#################################################### 
 ### LOGISTIC GROWTH, TIME ###
 # function to solve a logistic growth equation for the final time given growth rate, starting number of cells, carrying capacity, and the final number of cells
   solvet <- function(g, N0, Nfinal, k)
@@ -56,7 +59,8 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
       return(tfinal)
     }
 
-
+  
+#################################################### 
 ### LOGISITC GROWTH PER ROW IN DATA FRAME ###########
 # Determine time to reach number of cells equivalent to 80% vessel capacity from known starting number of cells (t_expand)
 # Then simulate growth of each subclone to t_expand and store new cell counts and abundance in data frame, return new data frame
@@ -76,7 +80,7 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
       return(df_out)
     }
 
-
+#################################################### 
 ### STOCHASTIC SELECTION AT PASSAGE/EXPANSION/SORT/FREEZE/THAW ######
   random_cell_loss <- function(df, prob_death, replace = TRUE)
     {
@@ -113,6 +117,33 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
       rownames(df_out) <- NULL
       return(df_out)
     }
+
+####################################################  
+#Function calculates Bray Curtis dissimilarity between replicates given the long form of the  cell population of interest and the number of cells per replicate wanted
+  BrayCurtisIndex <- function(long_population, cells_per_rep)
+      {   
+        all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix 
+        split_replicates <- split(long_population, ceiling(seq_along(long_population)/cells_per_rep)) #splits cell population of interest evenly by # of cells per aliquot/rep
+        for (chunk in split_replicates)
+        {
+          replicateN<- data.frame(table(chunk)) #creates data.frame from each split
+          colnames(replicateN)<- c("Cell_ID", "counts") #rename columns
+          replicateN <- replicateN %>% spread(Cell_ID, counts) #create long data frame (row=aliquot col=Cell_ID)
+          all_replicate<- bind_rows(all_replicate, replicateN) #combines all replicates into one data frame
+        }
+        
+        all_replicate[is.na(all_replicate)==TRUE ]<-0 #replace all NA values with 0
+        
+        mean_BCIndex<- mean(vegdist(all_replicate,'bray')) #calculate mean Bray Curtis
+        
+        
+        return(mean_BCIndex)
+  }
+
+#################################################### 
+
+
+
 
 ```
 
@@ -266,12 +297,19 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 ############################################################
 
 # Shannon Index (Lan)
-   shannon_OGcounts <- -sum(   OGcounts$abund*log(OGcounts$abund))    # calculate shannon index of initial cell library before cell sort
- shannon_SortMatrix <- -sum( SortMatrix$abund*log(SortMatrix$abund))  # calculate shannon index after cell sort
-    shannon_SortOut <- -sum(    SortOut$abund*log(SortOut$abund))     # calculate shannon index after first expansion/passage
-shannon_FinalCounts <- -sum(FinalCounts$abund*log(FinalCounts$abund)) # calculate shannon index after Bulk expansion
-    shannon_exp_pop <- -sum(    exp_pop$abund*log(exp_pop$abund))     # calculate shannon index of experimental population
-    shannon_fro_pop <- -sum(    fro_pop$abund*log(fro_pop$abund))     # calculate shannon index of frozen population
+
+shannon <- function(df)
+  { 
+  SI <- -sum( df$abund*log(df$abund)) 
+  return(SI)
+  }
+
+   shannon_OGcounts <- shannon(OGcounts)     # calculate shannon index of initial cell library before cell sort
+ shannon_SortMatrix <- shannon(SortMatrix)   # calculate shannon index after cell sort
+    shannon_SortOut <- shannon(SortOut)      # calculate shannon index after first expansion/passage
+shannon_FinalCounts <- shannon(FinalCounts)  # calculate shannon index after Bulk expansion
+    shannon_exp_pop <- shannon(exp_pop)      # calculate shannon index of experimental population
+    shannon_fro_pop <- shannon(fro_pop)      # calculate shannon index of frozen population
 
 # Shannon equitability index                                    # evenness
    sei_OGcounts <-    shannon_OGcounts/log(nrow(OGcounts))
@@ -283,29 +321,7 @@ sei_FinalCounts <- shannon_FinalCounts/log(nrow(FinalCounts))
 
 
 ## BRAY CURTIS INDEX FOR REPLICATES
-#Function calculates Bray Curtis dissimilarity between replicates given the long form of the  cell population of interest and the number of cells per replicate wanted
-  BrayCurtisIndex <- function(long_population, cells_per_rep)
-    {   
-      all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix 
-      split_replicates <- split(long_population, ceiling(seq_along(long_population)/cells_per_rep)) #splits cell population of interest evenly by # of cells per aliquot/rep
-      for (chunk in split_replicates)
-      {
-        replicateN<- data.frame(table(chunk)) #creates data.frame from each split
-        colnames(replicateN)<- c("Cell_ID", "counts") #rename columns
-        replicateN <- replicateN %>% spread(Cell_ID, counts) #create long data frame (row=aliquot col=Cell_ID)
-        all_replicate<- bind_rows(all_replicate, replicateN) #combines all replicates into one data frame
-      }
-      
-      all_replicate[is.na(all_replicate)==TRUE ]<-0 #replace all NA values with 0
-      
-      mean_BCIndex<- mean(vegdist(all_replicate,'bray')) #calculate mean Bray Curtis
-      
-      
-      return(mean_BCIndex)
-    }
-
- 
-  test_BC <- BrayCurtisIndex(experimental_population,1e5)
+  test_BC <- BrayCurtisIndex(long_population = NA, cells_per_rep = NA)
 
 ############## compute similarity of replicate
 

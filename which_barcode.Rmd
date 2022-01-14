@@ -16,8 +16,10 @@ library(lsa)
 library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
-final_cell_count = 6e6    # number of cells needed for experiments and freezebacks
+final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
 num_passages = 3           # number of expansions
+num_cells_experiment = 1e6
+ cell_per_freezeback = 1e6
 
 ```
 
@@ -113,9 +115,10 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
 
 ```
 
-
-############ SORT PHASE ####################################
 ```{r}
+############################################################
+############ SORT PHASE ####################################
+
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
 OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
@@ -148,10 +151,10 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
    
 print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
 print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
-```
+
 
 ######### BULK EXPANSION PHASE #############################
-```{r}
+
 
     max_gr = max(SortOut$gr)                                                                                  # take SortOut as input and determine time (t_expand) to get to final_cell_count based on max gr in data frame
   t_expand = solvet(g = max_gr, N0 = sum(SortOut$counts), Nfinal = final_cell_count, k = 1.2*final_cell_count)# solve logistic growth equation for expansion time
@@ -167,23 +170,21 @@ for (i in seq(1,(num_passages-1)))                                              
 
 print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
 print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
-```
 
+
+############################################################
 ##### [optional] FREEZE/THAW PHASE #########################
-```{r}
+
 # need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
 
 # FreezeOut <- random_cell_loss(df = FinalCounts, prob_death = prob_freezethaw_death)
 # print(paste("total number of cells after freeze/thaw:  ",sum(FreezeOut$counts), "cells"))
-```
 
 
+############################################################
 ######### EXPERIMENT PHASE #################################
-```{r}
 # How many unique barcodes were lost compared to what was expected
-num_cells_experiment <- 1e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
- cell_per_freezeback <- 1e6
       num_freezbacks <- floor(num_cells_freeze/cell_per_freezeback)
 
 
@@ -210,11 +211,10 @@ colnames(fro_pop) <- c('Cell_ID', 'counts')                             # rename
 fro_pop$Cell_ID   <- as.integer(as.character(fro_pop$Cell_ID))
 fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
-```
 
+############################################################
+###### DIVERSITY AND SIMILARITY METRICS ####################
 
-###### DIVERSITY AND SIMILARITY METRICS ######################
-```{r}
 # Shannon Index (Lan)
 shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
 shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
@@ -281,12 +281,43 @@ vegdist(fro_exp_BC, 'bray')
 
 
 
+############## compute similarity of replicate
+
+# have 5 replicates
+# randomly choose c(10, 100, 1000, 10000) cells from experimental population without replacement. Compute average BC similarity
+
+# num_test_reps = 5
+# 
+# rep_size = 10
+# 
+# fullset <- sample(x = experimental_population, size = rep_size*num_test_reps, replace = FALSE)
+# 
+# 
+# table(fullset[1:rep_size])
+# fullset[(rep_size+1):(2*rep_size)]
+# fullset[(2*rep_size+1):(3*rep_size)]
+# fullset[(3*rep_size+1):(4*rep_size)]
+# fullset[(4*rep_size+1):(5*rep_size)]
+
+
+#split_replicates <- split(fullset, ceiling(seq_along(fullset)/rep_size))  #split experimental population into even chunks
+
+
+# all_replicate<- data.frame(matrix(ncol=length(fullset), nrow=0)) #create empty matrix based off number of Cell ID in Final Counts
+# for (chunk in split_replicates)
+# {
+#   replicateN <- data.frame(table(chunk))                                                   # make replicate back into data frame
+#   colnames(replicateN)<- c('Cell_ID', 'counts')                                                     # rename columns
+#   replicateN<- replicateN %>% spread(Cell_ID, counts)                                       # make into wide form by having each Cell_ID be its own column
+#   all_replicate<- rbind(all_replicate,replicateN)  #combines all replicates together
+# }
+
 ```
 
 
 
-
-###### PLOTTING AND ANALYSIS #################################
+############################################################
+###### PLOTTING AND ANALYSIS ###############################
 ```{r}
 
 ```

@@ -15,7 +15,7 @@ library(ggthemes)
 ############ USER INPUTS ####################################
 ```{r}
 library_size = c(1000, 1500, 5000, 10000)        # number of barcoded cells sorted/intended library size [number of cells]
-mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
+mean_growth_rate = 0.0228   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
 num_passages = 3           # number of expansions
@@ -27,8 +27,8 @@ num_cells_experiment = 1e6
 
 ############ SET INPUTS ####################################
 ```{r}
-iterations = 5 # iterations per library size
-sd_growth_rate = 0.003        # standard deviation around mean growth rate [1/hr]
+iterations = 9 # iterations per library size
+sd_growth_rate = 0.00346        # standard deviation around mean growth rate [1/hr]
 k_96well = 55e3               # carrying capacity of a 96-well plate [number of cells]
 prob_cellsort_death = 0.15    # fraction of cell death due to cell sort [ ]
 prob_passage_death = 0.10     # fraction of cells lost during routine passaging or vessel change [ ]
@@ -379,14 +379,16 @@ counts_stor[is.na(counts_stor) == TRUE] <- 0
 
 ## Evenness of final library
 ggplot(res, aes(x = library_size, y = final_total_evenness, group = library_size)) +
-  geom_violin(fill='grey') + geom_point() + theme_few() +
-  ylim(0.5, 1) +
+  geom_violin(fill='grey') + geom_jitter(width=0.01) + theme_few() +
+  ylim(0.85, 1) +
+  scale_x_log10() +
   ggtitle('Expanded Library Evenness')
 
 ## Evenness per aliquot/freezeback/experimental population
 ggplot(res, aes(x = library_size, y = experimental_evenness, group = library_size)) +
-  geom_violin(fill='grey') + geom_point() + theme_few() +
-  ylim(0.5, 1) +
+  geom_violin(fill='grey') + geom_jitter(width=0.01) + theme_few() +
+  ylim(0.85, 1) +
+  scale_x_log10() +
   ggtitle('Experimental Population/Freezeback Evenness')
 
 
@@ -395,11 +397,13 @@ ggplot(res, aes(x = library_size, y = experimental_evenness, group = library_siz
 ## Diversity of final library 
 ggplot(res, aes(x = library_size, y = final_total_SI, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
+  scale_x_log10() +
   ggtitle('Expanded Library Diversity - Shannon Index')
 
 ## Diversity of aliquot/freezeback/experimental population
 ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
+  scale_x_log10() +
   ggtitle('Experimental Population/Freezeback - Shannon Index')
 
 ############# BRAY-CURTIS SIMILARITY #########
@@ -407,6 +411,7 @@ ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
 ## Similarity of aliquot/freezeback/experimental populations
 ggplot(res, aes(x = library_size, y = experimental_BC, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
+  scale_x_log10() +
   ggtitle('Similarity of Freezebacks - Bray-Curtis')
 
 
@@ -468,6 +473,6 @@ p11 <- clonal_pie(lib_size = library_size[3], repl = 3)
 p12 <- clonal_pie(lib_size = library_size[4], repl = 3)
 
 
-p5
+p12
 ```
 

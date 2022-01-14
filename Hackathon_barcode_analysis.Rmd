@@ -1,0 +1,188 @@
+---
+title: "SequencingBarcodeAnalysis"
+output: html_document
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(ggthemes)
+library(reshape)
+library(vegan)
+
+setwd('/stor/work/Brock/ag69378/2022Hackathon/')
+```
+
+
+```{r}
+a1k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libB2.barcodes.q30.r3d1.min447.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 1000, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+b1k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libB3.barcodes.q30.r3d1.min150.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 1000, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+a1.5k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libC2.barcodes.q30.r3d1.min127.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 1500, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+b1.5k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libC3.barcodes.q30.r3d1.min168.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 1500, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+a5k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libE2.barcodes.q30.r3d1.min178.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 5000, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+a10k <- read_tsv('/stor/work/Brock/ag69378/2022Hackathon/barcode_counts/libF2.barcodes.q30.r3d1.min165.tsv', col_names = c('barcode','counts')) %>% mutate(abund = counts/sum(counts), lib_int = 10000, lib_final = length(unique(barcode))) %>% mutate(lib_reduction = lib_final/lib_int)
+
+
+head(a10k)
+```
+```{r}
+# percent unique barcodes lost
+c(1-a1k$lib_reduction[1], 1-b1k$lib_reduction[1], 1-a1.5k$lib_reduction[1], 1-b1.5k$lib_reduction[1], 1-a5k$lib_reduction[1], 1-a10k$lib_reduction[1])
+
+```
+
+
+```{r}
+
+lib_int = c(1000,1000,1500,1500,5000,10000)
+
+lib_final <- c(  a1k$lib_final[1], b1k$lib_final[1], a1.5k$lib_final[1], 
+               b1.5k$lib_final[1], a5k$lib_final[1], a10k$lib_final[1])
+
+# Shannon index
+SI_real = c(-sum(a1k$abund*log(a1k$abund)),     -sum(b1k$abund*log(b1k$abund)),
+            -sum(a1.5k$abund*log(a1.5k$abund)), -sum(b1.5k$abund*log(b1.5k$abund)),
+            -sum(a5k$abund*log(a5k$abund)),     -sum(a10k$abund*log(a10k$abund)))
+
+
+SI_ideal = c(-log(1/length(unique(a1k$barcode))), 
+             -log(1/length(unique(b1k$barcode))),
+             -log(1/length(unique(a1.5k$barcode))),
+             -log(1/length(unique(b1.5k$barcode))),
+             -log(1/length(unique(a5k$barcode))),
+             -log(1/length(unique(a10k$barcode))))
+
+data.frame(cbind(lib_int, lib_final, SI_ideal, SI_real)) %>% 
+  mutate(uniq_bar_lost = lib_int-lib_final, frac_bar_decrease = round((lib_int-lib_final)/lib_int,3), 
+         frac_SI_decrease = round((SI_ideal-SI_real)/SI_ideal,3)) %>% 
+  select(lib_int, lib_final, uniq_bar_lost, frac_bar_decrease, SI_ideal, SI_real, frac_SI_decrease)
+
+```
+```{r functions}
+####################################################  
+#Function calculates Bray Curtis dissimilarity between replicates given the long form of the  cell population of interest and the number of cells per replicate wanted
+  BrayCurtisIndex <- function(long_population, cells_per_rep)
+      {   
+        all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix 
+        split_replicates <- split(long_population, ceiling(seq_along(long_population)/cells_per_rep)) #splits cell population of interest evenly by # of cells per aliquot/rep
+        for (chunk in split_replicates)
+        {
+          replicateN<- data.frame(table(chunk)) #creates data.frame from each split
+          colnames(replicateN)<- c("Cell_ID", "counts") #rename columns
+          replicateN <- replicateN %>% spread(Cell_ID, counts) #create long data frame (row=aliquot col=Cell_ID)
+          all_replicate<- bind_rows(all_replicate, replicateN) #combines all replicates into one data frame
+        }
+        
+        all_replicate[is.na(all_replicate)==TRUE ]<-0 #replace all NA values with 0
+        
+        mean_BCIndex<- mean(vegdist(all_replicate,'bray')) #calculate mean Bray Curtis
+        
+        
+        return(mean_BCIndex)
+  }
+
+#################################################### 
+# compute shannon diversity index
+shannon <- function(df)
+  { 
+  SI <- -sum( df$abund*log(df$abund)) 
+  return(SI)
+  }
+
+```
+
+
+
+```{r}
+diversity_stats <- function(df)
+  {
+    long_cells <- df %>% select(barcode, counts) %>% uncount(counts) # create a list of all cells in the population
+    mixed_population <- sample(long_cells$barcode, replace = FALSE) 
+    
+    aliquot_BC <- BrayCurtisIndex(long_population = mixed_population, cells_per_rep = 1e6)
+    shannon <- shannon(df)
+    evenness <- shannon/log(nrow(df))
+    
+    stats <- c(library_size = floor(df$lib_int[1]), aliquot_BC = aliquot_BC, shannon = shannon, evenness = evenness)
+    return(stats)
+}
+
+
+stor <- data.frame(library_size = NA, aliquot_BC = NA, shannon = NA, evenness = NA)
+
+
+stor <- rbind(stor, 
+      diversity_stats(a1k),
+      diversity_stats(b1k),
+      diversity_stats(a1.5k),
+      diversity_stats(b1.5k),
+      diversity_stats(a5k),
+      diversity_stats(a10k))
+
+stor <- stor[complete.cases(stor), ]
+rownames(stor) <- NULL
+
+```
+
+```{r}
+sim_data <- read_csv('/stor/work/Brock/ag69378/2022Hackathon/which_barcode_library/which_barcode_outs.csv')
+```
+
+
+```{r}
+all <- rbind(stor %>% mutate(Condition = 'sequencing'), sim_data%>% mutate(Condition = 'simulation'))
+
+
+ggplot(all, aes(x=library_size, y=evenness, color=Condition, group = library_size)) +
+  geom_violin(data = all %>% filter(Condition == 'simulation'),fill='grey', alpha=1, linetype=0) +
+  geom_jitter(width=0.0, alpha=1, size=1) +
+  geom_jitter(data = all %>% filter(Condition == 'sequencing'), width=0.0, alpha=1, size=3, color='red') +
+  scale_x_log10(breaks=c(1000,1500,5000,10000)) +
+  theme_few() +
+  scale_color_manual(values=c('red', 'black')) +
+  theme(legend.position = 'right') +
+  theme(legend.position=c(0.15, .85), legend.background = element_rect(colour = "black", size = 0.1), legend.title = element_blank()) +
+  ggtitle('Simulated evenness vs. measured')
+
+ggplot(all, aes(x=library_size, y=aliquot_BC, color=Condition, group = library_size)) +
+  geom_violin(data = all %>% filter(Condition == 'simulation'),fill='grey', alpha=1, linetype=0) +
+  geom_jitter(width=0.0, alpha=1, size=1) +
+  geom_jitter(data = all %>% filter(Condition == 'sequencing'), width=0.0, alpha=1, size=3, color='red') +
+  scale_x_log10(breaks=c(1000,1500,5000,10000)) +
+  theme_few() +
+  scale_color_manual(values=c('red', 'black')) +
+  theme(legend.position = 'right') +
+  theme(legend.position=c(0.5, .85), legend.background = element_rect(colour = "black", size = 0.1), legend.title = element_blank()) +
+  ylab('Bray-Curtis index') +
+  ggtitle('Bray-Curtis similarity of aliquots (1M cells each)')
+
+ggplot(all, aes(x=library_size, y=shannon, color=Condition, group = library_size)) +
+  geom_violin(data = all %>% filter(Condition == 'simulation'),fill='grey', alpha=1, linetype=0) +
+  geom_jitter(width=0.0, alpha=1, size=1) +
+  geom_jitter(data = all %>% filter(Condition == 'sequencing'), width=0.0, alpha=1, size=3, color='red') +
+  scale_x_log10(breaks=c(1000,1500,5000,10000)) +
+  theme_few() +
+  scale_color_manual(values=c('red', 'black')) +
+  theme(legend.position = 'right') +
+  theme(legend.position=c(0.15, .85), legend.background = element_rect(colour = "black", size = 0.1), legend.title = element_blank()) +
+  ylab('Shannon diversity index') +
+  ggtitle('Shannon diversity')
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+
+

@@ -419,7 +419,8 @@ ggplot(min_cells, aes(x=cells_per_rep, y=BC_similarity, group = cells_per_rep, c
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width=0.1) + theme_few() + scale_x_log10() +
   xlab('Number of cells per replicate') +
-  theme(legend.position = 'none') +
+  theme(legend.position=c(0.88, .75), legend.background = element_rect(colour = "black", size = 0.1)) +
+  labs(color = 'initial library size') +
   ggtitle('Similarity of replicates in experimental population')
 
 ```
@@ -451,20 +452,20 @@ clonal_pie <- function(lib_size, repl)
       return(make_pie)
   }
 
-p1 <- clonal_pie(lib_size = 100,  repl = 1)
-p2 <- clonal_pie(lib_size = 1000, repl = 1)
-p3 <- clonal_pie(lib_size = 1500, repl = 1)
-p4 <- clonal_pie(lib_size = 5000, repl = 1)
+p1 <- clonal_pie(lib_size = library_size[1], repl = 1)
+p2 <- clonal_pie(lib_size = library_size[2], repl = 1)
+p3 <- clonal_pie(lib_size = library_size[3], repl = 1)
+p4 <- clonal_pie(lib_size = library_size[4], repl = 1)
 
-p5 <- clonal_pie(lib_size = 100,  repl = 2)
-p6 <- clonal_pie(lib_size = 1000, repl = 2)
-p7 <- clonal_pie(lib_size = 1500, repl = 2)
-p8 <- clonal_pie(lib_size = 5000, repl = 2)
+p5 <- clonal_pie(lib_size = library_size[1], repl = 2)
+p6 <- clonal_pie(lib_size = library_size[2], repl = 2)
+p7 <- clonal_pie(lib_size = library_size[3], repl = 2)
+p8 <- clonal_pie(lib_size = library_size[4], repl = 2)
 
- p9 <- clonal_pie(lib_size = 100,  repl = 3)
-p10 <- clonal_pie(lib_size = 1000, repl = 3)
-p11 <- clonal_pie(lib_size = 1500, repl = 3)
-p12 <- clonal_pie(lib_size = 5000, repl = 3)
+ p9 <- clonal_pie(lib_size = library_size[1], repl = 3)
+p10 <- clonal_pie(lib_size = library_size[2], repl = 3)
+p11 <- clonal_pie(lib_size = library_size[3], repl = 3)
+p12 <- clonal_pie(lib_size = library_size[4], repl = 3)
 
 ```
 

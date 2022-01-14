@@ -380,13 +380,13 @@ counts_stor[is.na(counts_stor) == TRUE] <- 0
 ## Evenness of final library
 ggplot(res, aes(x = library_size, y = final_total_evenness, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
-  ylim(0.7, 1) +
+  ylim(0.5, 1) +
   ggtitle('Expanded Library Evenness')
 
 ## Evenness per aliquot/freezeback/experimental population
 ggplot(res, aes(x = library_size, y = experimental_evenness, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
-  ylim(0.7, 1) +
+  ylim(0.5, 1) +
   ggtitle('Experimental Population/Freezeback Evenness')
 
 
@@ -409,6 +409,24 @@ ggplot(res, aes(x = library_size, y = experimental_BC, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
   ggtitle('Experimental Population/Freezeback - Shannon Index')
 
+
+head(res)
+
+min_cells <- res %>% select(library_size, ends_with('0_BC')) %>% pivot_longer(-library_size, names_to = 'condition', values_to = 'BC_similarity') %>% 
+  mutate(cells_per_rep = rep(c(10,100,1000,10000,100000), iterations*length(unique(library_size))) )
+
+
+ggplot(min_cells, aes(x=log10(cells_per_rep), y=BC_similarity, group = cells_per_rep, color = as.factor(library_size))) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width=0.1) + theme_few() +
+  xlab('log10(number of cells per replicate)') +
+  ggtitle('Similarity of replicates from experimental population')
+
+ggplot(min_cells, aes(x=cells_per_rep, y=BC_similarity, group = cells_per_rep, color = as.factor(library_size))) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width=0.1) + theme_few() + scale_x_log10() +
+  xlab('Number of cells per replicate') +
+  ggtitle('Similarity of replicates from experimental population')
 
 ```
 

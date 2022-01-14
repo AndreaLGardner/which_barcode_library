@@ -128,9 +128,9 @@ df <- data.frame(  library_size = NA,
                  final_total_SI = NA,
               cells_per_aliquot = NA,
              number_freezebacks = NA,
-            freezeback_evenness = NA,
-                  freezeback_SI = NA,
-               freezeback_BCsim = NA,
+          experimental_evenness = NA,
+                experimental_SI = NA,
+             experimental_BCsim = NA,
                       replicate = NA    )
 
 
@@ -177,8 +177,8 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
   rownames(SortOut) <- NULL
    
    
-print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
+#print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 
 
 ############################################################
@@ -197,8 +197,8 @@ for (i in seq(1,(num_passages-1)))                                              
     FinalCounts <- NewCounts
   }
 
-print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
-print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
+#print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "cells"))
+#print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
 
 
 ############################################################
@@ -228,9 +228,9 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size[barcodes], 
-                 "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
-                 "\n Experimental population library size:", length(unique(experimental_population))) )  
+# writeLines(paste("                  Sorted library size:",   library_size[barcodes], 
+#                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
+#                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
 exp_pop           <- data.frame(table(experimental_population))                              # count occurrences of each cell id in cells_lost_expand
 colnames(exp_pop) <- c('Cell_ID', 'counts')                             # rename columns
@@ -249,20 +249,20 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 ############################################################
 
 # Shannon Index (Lan)
-shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
-shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
-shannon_SortOut <- -sum(SortOut$abund*log(SortOut$abund))             # calculate shannon index after first expansion/passage
+   shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
+ shannon_SortMatrix <- -sum(SortMatrix$abund*log(SortMatrix$abund))    # calculate shannon index after cell sort
+    shannon_SortOut <- -sum(SortOut$abund*log(SortOut$abund))             # calculate shannon index after first expansion/passage
 shannon_FinalCounts <- -sum(FinalCounts$abund*log(FinalCounts$abund)) # calculate shannon index after Bulk expansion
-shannon_exp_pop <- -sum(exp_pop$abund*log(exp_pop$abund))              # calculate shannon index of experimental population
-shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculate shannon index of frozen population
+    shannon_exp_pop <- -sum(exp_pop$abund*log(exp_pop$abund))              # calculate shannon index of experimental population
+    shannon_fro_pop <- -sum(fro_pop$abund*log(fro_pop$abund))             # calculate shannon index of frozen population
 
 # Shannon equitability index                                    # evenness
-sei_OGcounts <- shannon_OGcounts/log(nrow(OGcounts))
-sei_SortMatrix <- shannon_SortMatrix/log(nrow(SortMatrix))
-sei_SortOut <- shannon_SortOut/log(nrow(SortOut))
+   sei_OGcounts <-    shannon_OGcounts/log(nrow(OGcounts))
+ sei_SortMatrix <-  shannon_SortMatrix/log(nrow(SortMatrix))
+    sei_SortOut <-     shannon_SortOut/log(nrow(SortOut))
 sei_FinalCounts <- shannon_FinalCounts/log(nrow(FinalCounts))
-sei_exp_pop <- shannon_exp_pop/log(nrow(exp_pop))
-sei_fro_pop <- shannon_fro_pop/log(nrow(fro_pop))
+    sei_exp_pop <-     shannon_exp_pop/log(nrow(exp_pop))
+    sei_fro_pop <-     shannon_fro_pop/log(nrow(fro_pop))
 
 
 # Bray-Curtis Index (Caro)
@@ -349,16 +349,22 @@ vegdist(fro_exp_BC, 'bray')
 ######## STORE OUTS PUTS IN DATA FRAME AND RETURN DATA FRAME TO BEGINNING OF LOOP #######
 #########################################################################################
 # make sure order of outs matches columns of orginial empty df
+# 
+
+ 
+
+
 outs <- c(       library_size = library_size[barcodes], 
              final_cell_count = sum(FinalCounts$counts),
-             final_total_evenness = NA,
-             final_total_SI = NA,
-             cells_per_aliquot = cell_per_freezeback,
-             number_freezebacks = num_freezbacks,
-             freezeback_evenness = NA,
-             freezeback_SI = NA,
-             freezeback_BCsim = NA,
+         final_total_evenness = sei_FinalCounts,
+               final_total_SI = shannon_FinalCounts,
+            cells_per_aliquot = cell_per_freezeback,
+           number_freezebacks = num_freezbacks,
+        experimental_evenness = sei_exp_pop,
+              experimental_SI = shannon_exp_pop,
+           experimental_BCsim = NA,
                     replicate = j)
+
 
 df <- rbind(df, outs)
   

@@ -16,7 +16,7 @@ library(lsa)
 library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
-final_cell_count = 10e6    # number of cells needed for experiments and freezebacks
+final_cell_count = 6e6    # number of cells needed for experiments and freezebacks
 num_passages = 3           # number of expansions
 
 ```
@@ -140,7 +140,10 @@ SortMatrix <- random_cell_loss(df = OGcounts, prob_death = prob_cellsort_death, 
    complete_num_lost$Cell_ID <- as.integer(as.character(complete_num_lost$Cell_ID))
    
 
-  SortOut<- anti_join(SortOut, complete_num_lost, by = c("Cell_ID" = "Cell_ID"))
+  #SortOut <- anti_join(SortOut, complete_num_lost, by = c("Cell_ID" = "Cell_ID"))
+  
+  SortOut <- SortOut[SortOut$Cell_ID %not in% complete_num_lost$Cell_ID, ]
+  rownames(SortOut) <- NULL
    
    
 print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts), "cells"))
@@ -178,7 +181,7 @@ print(paste("total number of cells after", round(t_expand/24,2), " days of expan
 ######### EXPERIMENT PHASE #################################
 ```{r}
 # How many unique barcodes were lost compared to what was expected
-num_cells_experiment <- 2e6
+num_cells_experiment <- 1e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
  cell_per_freezeback <- 1e6
       num_freezbacks <- floor(num_cells_freeze/cell_per_freezeback)
@@ -258,23 +261,25 @@ vegdist(fro_exp_BC, 'bray')
 
 
 
-# Jaccard (double check me, unsure if I did this right or not)
-jaccard<- function(counts1, counts2) {
-  in_each = length(intersect(counts1, counts2))
-  in_either= length(counts1)+ length(counts2) - in_each
-  return(in_each/in_either)
-}
+# # Jaccard (double check me, unsure if I did this right or not)
+# jaccard<- function(counts1, counts2) {
+#   in_each = length(intersect(counts1, counts2))
+#   in_either= length(counts1)+ length(counts2) - in_each
+#   return(in_each/in_either)
+# }
+# 
+# jaccard(experimental_population, frozen_populations)
+# 
+# # Cosine----- i dont trust what i am doing here at all
+# exp_pop_cos<- as.numeric(exp_pop_wide)
+# fro_pop_cos<- as.numeric(fro_pop_wide)
+# 
+# cos_test<- cbind(exp_pop_cos,fro_pop_cos)
+# 
+# 
+# lower.tri(cosine(as.matrix(cos_test)))
 
-jaccard(experimental_population, frozen_populations)
 
-# Cosine----- i dont trust what i am doing here at all
-exp_pop_cos<- as.numeric(exp_pop_wide)
-fro_pop_cos<- as.numeric(fro_pop_wide)
-
-cos_test<- cbind(exp_pop_cos,fro_pop_cos)
-
-
-cosine(cos_test)
 
 ```
 

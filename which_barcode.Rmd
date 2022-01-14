@@ -14,7 +14,7 @@ library(ggthemes)
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = c(100, 200)        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(100, 500, 1000)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
@@ -27,7 +27,8 @@ num_cells_experiment = 1e6
 
 ############ SET INPUTS ####################################
 ```{r}
-sd_growth_rate = 0.003        # standard deviation around mean growth rate [1/hr]
+iterations = 3 # iterations per library size
+sd_growth_rate = 0.004        # standard deviation around mean growth rate [1/hr]
 k_96well = 55e3               # carrying capacity of a 96-well plate [number of cells]
 prob_cellsort_death = 0.15    # fraction of cell death due to cell sort [ ]
 prob_passage_death = 0.10     # fraction of cells lost during routine passaging or vessel change [ ]
@@ -141,7 +142,12 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
   }
 
 #################################################### 
-
+# compute shannon diversity index
+shannon <- function(df)
+  { 
+  SI <- -sum( df$abund*log(df$abund)) 
+  return(SI)
+  }
 
 
 
@@ -149,9 +155,7 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
 
 ```{r}
 # set random seed for first simulation
-set.seed(1212)
-
-iterations <- 3 # iterations per library size
+set.seed(1234)
 
 # setup empty data frame to store simulation outputs
 #df <- data.frame(library_size = NA, final_cell_count = NA, SI_experimental = NA, replicate = NA)
@@ -162,15 +166,14 @@ res <- data.frame( library_size = NA,
                  final_total_SI = NA,
               cells_per_aliquot = NA,
              number_freezebacks = NA,
-                     aliquot_BC = NA,
           experimental_evenness = NA,
                 experimental_SI = NA,
-             experimental_BCsim = NA,
-                       cells_10 = NA,
-                      cells_100 = NA,
-                     cells_1000 = NA,
-                    cells_10000 = NA,
-                   cells_100000 = NA,
+                experimental_BC = NA,
+                     cells10_BC = NA,
+                    cells100_BC = NA,
+                   cells1000_BC = NA,
+                  cells10000_BC = NA,
+                 cells100000_BC = NA,
                       replicate = NA    )
 
 
@@ -186,10 +189,6 @@ counts_stor[1,] <- NA
 for(barcodes in seq(1,length(library_size))){
   for(j in seq(1:iterations))
   {
-
-
-
-
 
 ############################################################
 ############ SORT PHASE ####################################
@@ -275,7 +274,6 @@ mixed_population <- sample(long_cells$Cell_ID, replace = FALSE)   # randomize th
 experimental_population <- mixed_population[1:num_cells_experiment]   # grab the first portion of the random list as the experimental population
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
-     
 # writeLines(paste("                  Sorted library size:",   library_size[barcodes], 
 #                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
 #                  "\n Experimental population library size:", length(unique(experimental_population))) )  
@@ -296,13 +294,7 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 ###### DIVERSITY AND SIMILARITY METRICS ####################
 ############################################################
 
-# Shannon Index (Lan)
-
-shannon <- function(df)
-  { 
-  SI <- -sum( df$abund*log(df$abund)) 
-  return(SI)
-  }
+# DIVERSITY METRICS
 
    shannon_OGcounts <- shannon(OGcounts)     # calculate shannon index of initial cell library before cell sort
  shannon_SortMatrix <- shannon(SortMatrix)   # calculate shannon index after cell sort
@@ -311,7 +303,7 @@ shannon_FinalCounts <- shannon(FinalCounts)  # calculate shannon index after Bul
     shannon_exp_pop <- shannon(exp_pop)      # calculate shannon index of experimental population
     shannon_fro_pop <- shannon(fro_pop)      # calculate shannon index of frozen population
 
-# Shannon equitability index                                    # evenness
+# Shannon equitability index, i.e. Evenness
    sei_OGcounts <-    shannon_OGcounts/log(nrow(OGcounts))
  sei_SortMatrix <-  shannon_SortMatrix/log(nrow(SortMatrix))
     sei_SortOut <-     shannon_SortOut/log(nrow(SortOut))
@@ -320,21 +312,19 @@ sei_FinalCounts <- shannon_FinalCounts/log(nrow(FinalCounts))
     sei_fro_pop <-     shannon_fro_pop/log(nrow(fro_pop))
 
 
-## BRAY CURTIS INDEX FOR REPLICATES
-  test_BC <- BrayCurtisIndex(long_population = NA, cells_per_rep = NA)
+## BRAY CURTIS INDEX FOR ALIQUOTS
+  aliquot_BC <- BrayCurtisIndex(long_population = mixed_population, cells_per_rep = 1e6)
 
 ############## compute similarity of replicate
 
-# num_replicates = 5
-# population = experimental_population
-# 
-# # for value in rep_cells c(10, 100, 1000, etc.), compute BC similarity score
-# #
-# 
-# bray_curtis(cell_per_replicate, replicates, population)
-#  
-# c(cells_10 = NA, cells_100 = NA, cells_1000 = NA, cells_10000 = NA, cells_100000 = NA )
+ num_replicates = 5
 
+    cells10_BC <- BrayCurtisIndex(long_population = sample(x = experimental_population, size = num_replicates*10    ), cells_per_rep = 10)
+   cells100_BC <- BrayCurtisIndex(long_population = sample(x = experimental_population, size = num_replicates*100   ), cells_per_rep = 100)   
+  cells1000_BC <- BrayCurtisIndex(long_population = sample(x = experimental_population, size = num_replicates*1000  ), cells_per_rep = 1000)
+ cells10000_BC <- BrayCurtisIndex(long_population = sample(x = experimental_population, size = num_replicates*10000 ), cells_per_rep = 10000) 
+cells100000_BC <- BrayCurtisIndex(long_population = sample(x = experimental_population, size = num_replicates*100000), cells_per_rep = 100000)
+   
 #########################################################################################
 ######## STORE OUTS PUTS IN DATA FRAME AND RETURN DATA FRAME TO BEGINNING OF LOOP #######
 #########################################################################################
@@ -347,15 +337,14 @@ outs <- c(       library_size = library_size[barcodes],
                final_total_SI = shannon_FinalCounts,
             cells_per_aliquot = cell_per_freezeback,
            number_freezebacks = num_freezbacks,
-                   aliquot_BC = test_BC,
         experimental_evenness = sei_exp_pop,
               experimental_SI = shannon_exp_pop,
-           experimental_BCsim = NA,
-                     cells_10 = NA,
-                    cells_100 = NA,
-                   cells_1000 = NA,
-                  cells_10000 = NA,
-                 cells_100000 = NA,
+              experimental_BC = aliquot_BC,
+                   cells10_BC = cells10_BC,
+                  cells100_BC = cells100_BC,
+                 cells1000_BC = cells1000_BC,
+                cells10000_BC = cells10000_BC,
+               cells100000_BC = cells100000_BC,
                     replicate = j)
 
 
@@ -416,7 +405,7 @@ ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
 ############# BRAY-CURTIS SIMILARITY #########
 
 ## Similarity of aliquot/freezeback/experimental populations
-ggplot(res, aes(x = library_size, y = aliquot_BC, group = library_size)) +
+ggplot(res, aes(x = library_size, y = experimental_BC, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
   ggtitle('Experimental Population/Freezeback - Shannon Index')
 

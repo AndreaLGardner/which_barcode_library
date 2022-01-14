@@ -9,6 +9,7 @@ library(dplyr)
 library(tidyverse)
 library(vegan)
 library(lsa)
+library(ggthemes)
 ```
 
 ############ USER INPUTS ####################################
@@ -122,12 +123,13 @@ set.seed(1212)
 # setup empty data frame to store simulation outputs
 #df <- data.frame(library_size = NA, final_cell_count = NA, SI_experimental = NA, replicate = NA)
 
-df <- data.frame(  library_size = NA, 
+res <- data.frame(  library_size = NA, 
                final_cell_count = NA,
            final_total_evenness = NA,
                  final_total_SI = NA,
               cells_per_aliquot = NA,
              number_freezebacks = NA,
+                     aliquot_BC = NA,
           experimental_evenness = NA,
                 experimental_SI = NA,
              experimental_BCsim = NA,
@@ -360,18 +362,19 @@ outs <- c(       library_size = library_size[barcodes],
                final_total_SI = shannon_FinalCounts,
             cells_per_aliquot = cell_per_freezeback,
            number_freezebacks = num_freezbacks,
+                   aliquot_BC = NA,
         experimental_evenness = sei_exp_pop,
               experimental_SI = shannon_exp_pop,
            experimental_BCsim = NA,
                     replicate = j)
 
 
-df <- rbind(df, outs)
+res <- rbind(res, outs)
   
   }
   
 }
-df
+res
 
 ```
 
@@ -381,6 +384,41 @@ df
 ###### PLOTTING AND ANALYSIS ###############################
 ############################################################
 ```{r}
+
+############# EVENNNESS #########
+
+## Evenness of final library
+ggplot(res, aes(x = library_size, y = final_total_evenness, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ylim(0.7, 1) +
+  ggtitle('Expanded Library Evenness')
+
+## Evenness per aliquot/freezeback/experimental population
+ggplot(res, aes(x = library_size, y = experimental_evenness, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ylim(0.7, 1) +
+  ggtitle('Experimental Population/Freezeback Evenness')
+
+
+############# SHANNON DIVERSITY #########
+
+## Diversity of final library 
+ggplot(res, aes(x = library_size, y = final_total_SI, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Expanded Library Diversity - Shannon Index')
+
+## Diversity of aliquot/freezeback/experimental population
+ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Experimental Population/Freezeback - Shannon Index')
+
+############# BRAY-CURTIS SIMILARITY #########
+
+## Similarity of aliquot/freezeback/experimental populations
+ggplot(res, aes(x = library_size, y = aliquot_BC, group = library_size)) +
+  geom_violin(fill='grey') + geom_point() + theme_few() +
+  ggtitle('Experimental Population/Freezeback - Shannon Index')
+
 
 ```
 

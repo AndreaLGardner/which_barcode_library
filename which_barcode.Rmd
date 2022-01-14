@@ -437,7 +437,30 @@ ggplot(min_cells, aes(x=cells_per_rep, y=BC_similarity, group = cells_per_rep, c
 # final cell distributions per run
 # note that cell #1 in replicate 1 IS NOT the same as cell #1 in replicate 2. These are generated from independent simulations and this have difference mean growth rates
 
-counts_stor
+head(counts_stor)
+
+clonal_pie <- function(lib_size, repl)
+  {
+    long_counts <- counts_stor %>% filter(replicate == repl) %>% select(-replicate, -phase)  %>% 
+                   pivot_longer(-library_size, names_to = 'Cell_ID', values_to = 'counts') %>% filter(counts != 0)
+
+    bake_pie <- long_counts %>% filter(library_size == lib_size) %>% mutate(abund = counts/sum(counts))
+  
+    make_pie <- ggplot(bake_pie, aes(x="100_lib", y=abund, fill=as.factor(Cell_ID))) +
+    geom_bar(stat = "identity", color='black', size=0.1) +
+    coord_polar("y", start=0)  +
+    theme_void() +
+    theme(legend.position = 'none', plot.title = element_text(hjust = 0.5))
+    
+    return(make_pie)
+  }
+
+clonal_pie(100, 1)
+clonal_pie(100, 2)
+clonal_pie(100, 3)
+clonal_pie(1000, 1)
+clonal_pie(1000, 2)
+clonal_pie(1000, 3)
 
 ```
 

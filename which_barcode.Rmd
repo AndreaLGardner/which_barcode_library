@@ -13,7 +13,7 @@ library(lsa)
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = 1000        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(100, 200)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
@@ -116,14 +116,29 @@ prob_firstpassage_death=0.05  # fraction of complete cell lost due to 1st passag
 ```
 
 ```{r}
+# set random seed for first simulation
+set.seed(1212)
+
+# setup empty data frame to store simulation outputs
+df <- data.frame(library_size = NA, final_cell_count = NA, SI_experimental = NA, replicate = NA)
+
+for(barcodes in seq(1,length(library_size))){
+  for(j in seq(1:3))
+  {
+
+
+
+
+
 ############################################################
 ############ SORT PHASE ####################################
+############################################################
 
 ### SORT CELLS
 # (1) Setup initial cell count matrix with number of cells equal to the number of cells sorted
-OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size))) %>%                             # create matrix with cells equal to sorted library size
+OGcounts <- data.frame("Cell_ID"= c(seq(1,library_size[barcodes]))) %>%                             # create matrix with cells equal to sorted library size
             add_column(    gr = rnorm(nrow(.), mean=mean_growth_rate, sd=sd_growth_rate), # sample growth rates from normal distribution
-                       counts = c(rep(1,library_size)) ) %>%                              # set initial count of each subclone to 1
+                       counts = c(rep(1,library_size[barcodes])) ) %>%                              # set initial count of each subclone to 1
             mutate(abund = counts/sum(counts))                                            # add new column for subclonal abundance
 
 # (2) Stochastic selection of cells that die post-cell sort
@@ -153,8 +168,9 @@ print(paste("total number of cells after first expansion:  ",sum(SortGrow$counts
 print(paste("total number of cells after first replating:  ",sum(SortOut$counts), "cells"))
 
 
+############################################################
 ######### BULK EXPANSION PHASE #############################
-
+############################################################
 
     max_gr = max(SortOut$gr)                                                                                  # take SortOut as input and determine time (t_expand) to get to final_cell_count based on max gr in data frame
   t_expand = solvet(g = max_gr, N0 = sum(SortOut$counts), Nfinal = final_cell_count, k = 1.2*final_cell_count)# solve logistic growth equation for expansion time
@@ -174,6 +190,7 @@ print(paste("total number of cells after", round(t_expand/24,2), " days of expan
 
 ############################################################
 ##### [optional] FREEZE/THAW PHASE #########################
+############################################################
 
 # need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
 
@@ -183,6 +200,8 @@ print(paste("total number of cells after", round(t_expand/24,2), " days of expan
 
 ############################################################
 ######### EXPERIMENT PHASE #################################
+############################################################
+
 # How many unique barcodes were lost compared to what was expected
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
       num_freezbacks <- floor(num_cells_freeze/cell_per_freezeback)
@@ -196,7 +215,7 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size, 
+writeLines(paste("                  Sorted library size:",   library_size[barcodes], 
                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
@@ -214,6 +233,7 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
 ############################################################
 ###### DIVERSITY AND SIMILARITY METRICS ####################
+############################################################
 
 # Shannon Index (Lan)
 shannon_OGcounts <- -sum(OGcounts$abund*log(OGcounts$abund))          # calculate shannon index of initial cell library before cell sort
@@ -312,12 +332,17 @@ vegdist(fro_exp_BC, 'bray')
 #   all_replicate<- rbind(all_replicate,replicateN)  #combines all replicates together
 # }
 
+
+    }
+  }
+
 ```
 
 
 
 ############################################################
 ###### PLOTTING AND ANALYSIS ###############################
+############################################################
 ```{r}
 
 ```

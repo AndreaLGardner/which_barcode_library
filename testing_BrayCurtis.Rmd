@@ -168,18 +168,9 @@ print(paste("total number of cells before expansion:  ",sum(SortGrow$counts), "c
 print(paste("total number of cells after", round(t_expand/24,2), " days of expansion with ", num_passages-1, "additional vessel changes:  ", round(sum(FinalCounts$counts)/1e6,2), "M cells"))
 ```
 
-##### [optional] FREEZE/THAW PHASE #########################
-```{r}
-# need to split cells into replicate vials each containing 1M cells each, then simulate stochastic loss and then growth on one of those vials
-
-# FreezeOut <- random_cell_loss(df = FinalCounts, prob_death = prob_freezethaw_death)
-# print(paste("total number of cells after freeze/thaw:  ",sum(FreezeOut$counts), "cells"))
-```
-
 
 ######### EXPERIMENT PHASE #################################
 ```{r}
-# How many unique barcodes were lost compared to what was expected
 num_cells_experiment <- 2e6
     num_cells_freeze <- sum(FinalCounts$counts) - num_cells_experiment
  cell_per_freezeback <- 1e6
@@ -194,13 +185,14 @@ experimental_population <- mixed_population[1:num_cells_experiment]   # grab the
      frozen_populations <- mixed_population[1+num_cells_experiment:length(mixed_population)] # let the rest be frozen, can be further subsetted to individual vials for other analysis
 
      
-writeLines(paste("                  Sorted library size:",   library_size, 
+writeLines(paste(" Sorted library size:",   library_size, 
                  "\nFinal library size before freezebacks:", length(unique(FinalCounts$Cell_ID)),
                  "\n Experimental population library size:", length(unique(experimental_population))) )  
 
-exp_pop           <- data.frame(table(experimental_population))                              # count occurrences of each cell id in cells_lost_expand
-colnames(exp_pop) <- c('Cell_ID', 'counts')                             # rename columns
-exp_pop$Cell_ID   <- as.integer(as.character(exp_pop$Cell_ID))                 # change data type of cell_id column to integer
+
+exp_pop           <- data.frame(table(experimental_population))                  # turn experimental pop list back into a data frame
+colnames(exp_pop) <- c('Cell_ID', 'counts')                                      # rename columns
+exp_pop$Cell_ID   <- as.integer(as.character(exp_pop$Cell_ID))                   # change data type of cell_id column to integer
 
 exp_pop <- exp_pop %>% mutate(abund = counts/sum(counts) )
 
@@ -217,14 +209,68 @@ fro_pop <- fro_pop %>% mutate(abund = counts/sum(counts) )
 
 # Bray-Curtis Index (Caro)
 #Bray Curtis for looking at similarites between replicates, matrix shaping will be different for other cases
-exp_replicates=4
-num_cells_experiment=2e6
-cells_per_replicate=1e4
+cells_per_replicate=1e5
 
-all_replicate<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0)) #create empty matrix based off number of Cell ID in Final Counts
+all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix based off number of Cell ID in Final Counts
 
-split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate))  #split experimental population into even chunks
+split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate)) #split experimental population into even chunks
 
+for (chunk in split_replicates)
+{
+  replicateN<- data.frame(table(chunk))
+  colnames(replicateN)<- c("Cell_ID", "counts")
+  replicateN <- replicateN %>% spread(Cell_ID, counts)
+  all_replicate<- bind_rows(all_replicate, replicateN)
+}
+
+all_replicate[is.na(all_replicate)==TRUE ]<-0
+
+#all_replicate_transpose<- data.frame(t(all_replicate))
+#all_replicate_transpose<- all_replicate_transpose%>% rowwise() %>% mutate(min=min(X1,X2))
+
+#BC<- 1- (2*sum(all_replicate_transpose$min))/(sum(all_replicate_transpose$X1)+ sum(all_replicate_transpose$X2))
+
+
+mean(vegdist(all_replicate,'bray'))
+
+                          
+
+
+
+
+
+```
+```{r THIS ONE DIDI}
+## BRAY CURTIS INDEX FOR REPLICATES
+#Function calculates Bray Curtis dissimilarity between replicates given the long form of the  cell population of interest and the number of cells per replicate wanted
+  BrayCurtisIndex <- function(long_population, cells_per_rep)
+    {   
+      all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix 
+      split_replicates <- split(long_population, ceiling(seq_along(long_population)/cells_per_rep)) #splits cell population of interest evenly by # of cells per aliquot/rep
+      for (chunk in split_replicates)
+      {
+        replicateN<- data.frame(table(chunk)) #creates data.frame from each split
+        colnames(replicateN)<- c("Cell_ID", "counts") #rename columns
+        replicateN <- replicateN %>% spread(Cell_ID, counts) #create long data frame (row=aliquot col=Cell_ID)
+        all_replicate<- bind_rows(all_replicate, replicateN) #combines all replicates into one data frame
+      }
+      
+      all_replicate[is.na(all_replicate)==TRUE ]<-0 #replace all NA values with 0
+      
+      mean_BCIndex<- mean(vegdist(all_replicate,'bray')) #calculate mean Bray Curtis
+      
+      
+      return(mean_BCIndex)
+    }
+
+```
+
+
+```{r}
+
+BrayCurtisIndex(experimental_population,1e5)
+
+###IGNORE THIS DIDI LOL
 for (chunk in split_replicates)
 {
   replicateN <- data.frame(table(chunk))                                                   # make replicate back into data frame
@@ -232,6 +278,9 @@ for (chunk in split_replicates)
   replicateN<- replicateN %>% spread(Cell_ID, counts)                                       # make into wide form by having each Cell_ID be its own column
   all_replicate<- rbind(all_replicate,replicateN)  #combines all replicates together
 }
+
+
+
 mean(vegdist(all_replicate,'bray'))
 
 
@@ -269,9 +318,5 @@ mean(upper.tri(cosine(as.matrix(all_replicate))))
 
 
 
-###### PLOTTING AND ANALYSIS #################################
-```{r}
-
-```
 
 

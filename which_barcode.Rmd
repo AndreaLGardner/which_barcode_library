@@ -282,54 +282,30 @@ sei_FinalCounts <- shannon_FinalCounts/log(nrow(FinalCounts))
     sei_fro_pop <-     shannon_fro_pop/log(nrow(fro_pop))
 
 
-# Bray-Curtis Index (Caro)
-#Bray Curtis for looking at similarites between replicates, matrix shaping will be different for other cases
-exp_replicates=4
-num_cells_experiment=2e6
-cells_per_replicate=num_cells_experiment/exp_replicates 
+## BRAY CURTIS INDEX FOR REPLICATES
+#Function calculates Bray Curtis dissimilarity between replicates given the long form of the  cell population of interest and the number of cells per replicate wanted
+  BrayCurtisIndex <- function(long_population, cells_per_rep)
+    {   
+      all_replicate<- data.frame(matrix(ncol = 0, nrow = 0 )) #create empty matrix 
+      split_replicates <- split(long_population, ceiling(seq_along(long_population)/cells_per_rep)) #splits cell population of interest evenly by # of cells per aliquot/rep
+      for (chunk in split_replicates)
+      {
+        replicateN<- data.frame(table(chunk)) #creates data.frame from each split
+        colnames(replicateN)<- c("Cell_ID", "counts") #rename columns
+        replicateN <- replicateN %>% spread(Cell_ID, counts) #create long data frame (row=aliquot col=Cell_ID)
+        all_replicate<- bind_rows(all_replicate, replicateN) #combines all replicates into one data frame
+      }
+      
+      all_replicate[is.na(all_replicate)==TRUE ]<-0 #replace all NA values with 0
+      
+      mean_BCIndex<- mean(vegdist(all_replicate,'bray')) #calculate mean Bray Curtis
+      
+      
+      return(mean_BCIndex)
+    }
 
-all_replicate<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0)) #create empty matrix based off number of Cell ID in Final Counts
-
-split_replicates <- split(experimental_population, ceiling(seq_along(experimental_population)/cells_per_replicate))  #split experimental population into even chunks
-
-for (chunk in split_replicates)
-{
-  replicateN <- data.frame(table(chunk))                                                   # make replicate back into data frame
-  colnames(replicateN)<- c('Cell_ID', 'counts')                                                     # rename columns
-  replicateN<- replicateN %>% spread(Cell_ID, counts)                                       # make into wide form by having each Cell_ID be its own column
-  all_replicate<- rbind(all_replicate,replicateN)  #combines all replicates together
-}
-vegdist(all_replicate,'bray')
-
-#Bray-Curtis Index when looking at frozen populations and experimental population
-fro_exp_BC<- data.frame(matrix(ncol=length(FinalCounts$Cell_ID), nrow=0))
-fro_pop_wide<- fro_pop%>% select(-abund) %>%spread(Cell_ID, counts)
-exp_pop_wide<- exp_pop%>% select(-abund)%>% spread(Cell_ID, counts)
-fro_exp_BC<- rbind(fro_exp_BC,exp_pop_wide,fro_pop_wide)
-vegdist(fro_exp_BC, 'bray')
-
-
-
-
-# # Jaccard (double check me, unsure if I did this right or not)
-# jaccard<- function(counts1, counts2) {
-#   in_each = length(intersect(counts1, counts2))
-#   in_either= length(counts1)+ length(counts2) - in_each
-#   return(in_each/in_either)
-# }
-# 
-# jaccard(experimental_population, frozen_populations)
-# 
-# # Cosine----- i dont trust what i am doing here at all
-# exp_pop_cos<- as.numeric(exp_pop_wide)
-# fro_pop_cos<- as.numeric(fro_pop_wide)
-# 
-# cos_test<- cbind(exp_pop_cos,fro_pop_cos)
-# 
-# 
-# lower.tri(cosine(as.matrix(cos_test)))
-
-
+ 
+  test_BC <- BrayCurtisIndex(experimental_population,1e5)
 
 ############## compute similarity of replicate
 
@@ -346,9 +322,7 @@ vegdist(fro_exp_BC, 'bray')
 #########################################################################################
 ######## STORE OUTS PUTS IN DATA FRAME AND RETURN DATA FRAME TO BEGINNING OF LOOP #######
 #########################################################################################
-# make sure order of outs matches columns of orginial empty df
-# 
-
+# make sure order of outs matches columns of original empty df
 
 
 outs <- c(       library_size = library_size[barcodes], 
@@ -357,7 +331,7 @@ outs <- c(       library_size = library_size[barcodes],
                final_total_SI = shannon_FinalCounts,
             cells_per_aliquot = cell_per_freezeback,
            number_freezebacks = num_freezbacks,
-                   aliquot_BC = NA,
+                   aliquot_BC = test_BC,
         experimental_evenness = sei_exp_pop,
               experimental_SI = shannon_exp_pop,
            experimental_BCsim = NA,

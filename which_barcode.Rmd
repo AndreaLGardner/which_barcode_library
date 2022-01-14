@@ -14,7 +14,7 @@ library(ggthemes)
 
 ############ USER INPUTS ####################################
 ```{r}
-library_size = c(100, 500, 1000)        # number of barcoded cells sorted/intended library size [number of cells]
+library_size = c(100, 500, 1000, 1500, 5000)        # number of barcoded cells sorted/intended library size [number of cells]
 mean_growth_rate = 0.022   # mean growth rate of cell line to be used [1/hr]
 cell_doubl_time = NA       # estimated cell doubling time [hr]
 final_cell_count = 6e6     # number of cells needed for experiments and freezebacks
@@ -407,7 +407,7 @@ ggplot(res, aes(x = library_size, y = experimental_SI, group = library_size)) +
 ## Similarity of aliquot/freezeback/experimental populations
 ggplot(res, aes(x = library_size, y = experimental_BC, group = library_size)) +
   geom_violin(fill='grey') + geom_point() + theme_few() +
-  ggtitle('Experimental Population/Freezeback - Shannon Index')
+  ggtitle('Similarity of Freezebacks - Bray-Curtis')
 
 
 head(res)
@@ -415,18 +415,12 @@ head(res)
 min_cells <- res %>% select(library_size, ends_with('0_BC')) %>% pivot_longer(-library_size, names_to = 'condition', values_to = 'BC_similarity') %>% 
   mutate(cells_per_rep = rep(c(10,100,1000,10000,100000), iterations*length(unique(library_size))) )
 
-
-ggplot(min_cells, aes(x=log10(cells_per_rep), y=BC_similarity, group = cells_per_rep, color = as.factor(library_size))) +
-  geom_boxplot(outlier.shape = NA) +
-  geom_jitter(width=0.1) + theme_few() +
-  xlab('log10(number of cells per replicate)') +
-  ggtitle('Similarity of replicates from experimental population')
-
 ggplot(min_cells, aes(x=cells_per_rep, y=BC_similarity, group = cells_per_rep, color = as.factor(library_size))) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width=0.1) + theme_few() + scale_x_log10() +
   xlab('Number of cells per replicate') +
-  ggtitle('Similarity of replicates from experimental population')
+  theme(legend.position = 'none') +
+  ggtitle('Similarity of replicates in experimental population')
 
 ```
 
@@ -441,26 +435,36 @@ head(counts_stor)
 
 clonal_pie <- function(lib_size, repl)
   {
-    long_counts <- counts_stor %>% filter(replicate == repl) %>% select(-replicate, -phase)  %>% 
-                   pivot_longer(-library_size, names_to = 'Cell_ID', values_to = 'counts') %>% filter(counts != 0)
-
-    bake_pie <- long_counts %>% filter(library_size == lib_size) %>% mutate(abund = counts/sum(counts))
+   long_counts <- counts_stor %>% filter(replicate == repl) %>% select(-replicate, -phase)  %>% 
+                     pivot_longer(-library_size, names_to = 'Cell_ID', values_to = 'counts') %>% filter(counts != 0)
   
-    make_pie <- ggplot(bake_pie, aes(x="100_lib", y=abund, fill=as.factor(Cell_ID))) +
-    geom_bar(stat = "identity", color='black', size=0.1) +
-    coord_polar("y", start=0)  +
-    theme_void() +
-    theme(legend.position = 'none', plot.title = element_text(hjust = 0.5))
+      bake_pie <- long_counts %>% filter(library_size == lib_size) %>% mutate(abund = counts/sum(counts))
     
-    return(make_pie)
+      make_pie <- ggplot(bake_pie, aes(x="100_lib", y=abund, fill=as.factor(Cell_ID))) +
+                  geom_bar(stat = "identity", color='black', size=0.1) +
+                  coord_polar("y", start=0)  +
+                  theme_void() +
+                  theme(legend.position = 'none', plot.title = element_text(hjust = 0.5)) +
+                  ggtitle(paste('Sorted library size = ', lib_size, 'cells,   simulation #', repl))
+        
+      
+      return(make_pie)
   }
 
-clonal_pie(100, 1)
-clonal_pie(100, 2)
-clonal_pie(100, 3)
-clonal_pie(1000, 1)
-clonal_pie(1000, 2)
-clonal_pie(1000, 3)
+p1 <- clonal_pie(lib_size = 100,  repl = 1)
+p2 <- clonal_pie(lib_size = 1000, repl = 1)
+p3 <- clonal_pie(lib_size = 1500, repl = 1)
+p4 <- clonal_pie(lib_size = 5000, repl = 1)
+
+p5 <- clonal_pie(lib_size = 100,  repl = 2)
+p6 <- clonal_pie(lib_size = 1000, repl = 2)
+p7 <- clonal_pie(lib_size = 1500, repl = 2)
+p8 <- clonal_pie(lib_size = 5000, repl = 2)
+
+ p9 <- clonal_pie(lib_size = 100,  repl = 3)
+p10 <- clonal_pie(lib_size = 1000, repl = 3)
+p11 <- clonal_pie(lib_size = 1500, repl = 3)
+p12 <- clonal_pie(lib_size = 5000, repl = 3)
 
 ```
 
